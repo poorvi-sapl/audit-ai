@@ -67,3 +67,4 @@ docker/volumes/
 *.bak
 review_log.csv
 security_review_queue.csv
+.claude/
