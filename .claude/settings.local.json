@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Program Files/**)",
+      "Bash(timeout 30 .venv/bin/python -c ' *)",
+      "Bash(awk '{print $6, $7, $8, $9}')",
+      "Bash(python3 -c ' *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\HCLLP_Poorvi\\.claude\\projects\\c--Users-HCLLP-Poorvi-audit-fine-tuning\\memory"
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+# config/firm_registry.yaml
+# ==========================
+# Known audit firm registry for engagement_partner resolution.
+#
+# Purpose
+# -------
+# In financial statement PDFs, the firm signature is typically an image —
+# the partner name is not in the text layer. This registry maps known
+# firm names to their identity metadata so that engagement_partner can
+# be populated when the firm is the document preparer.
+#
+# When to use
+# -----------
+# normalize.py checks this registry ONLY when:
+#   1. document_category == "financial_statement"
+#   2. engagement_partner was not found by any extractor (structural, LLM, or deterministic)
+#   3. The firm name appears in the document text OR in the filename metadata
+#
+# What this covers
+# ----------------
+# Only true identity fields — firm name → engagement partner.
+# NEVER used for client-specific fields (client_name, fiscal_year_end, etc.).
+# If engagement_partner is found in the text by any other extractor,
+# that value takes precedence over the registry.
+#
+# Explicit null
+# -------------
+# If the firm is in this registry but engagement_partner is not listed
+# (listed as null), the pipeline emits engagement_partner = null explicitly
+# rather than leaving the field absent. This signals "firm known, partner
+# not determinable" to the auditor review queue.
+#
+# How to extend
+# -------------
+# Add new entries when a new client firm is onboarded.
+# canonical_name must match exactly how the firm signs audit reports.
+# text_signals are strings searched in the full document text (case-insensitive).
+# engagement_partner is the partner of record — update when it changes.
+#
+# Schema
+# ------
+# firms:
+#   - canonical_name:      str   — official firm name as it appears on reports
+#     text_signals:        list  — strings that identify this firm in document text
+#     engagement_partner:  str | null — partner name, or null if not determinable
+
+
+firms:
+
+  - canonical_name: "Harshwal & Company LLP"
+    text_signals:
+      - "harshwal"
+      - "harshwal & company"
+      - "harshwal and company"
+      - "hcllp"
+    engagement_partner: null
+    # Note: Harshwal & Company LLP signs with an image signature.
+    # Partner name not reliably present in text layer.
+    # Update this entry when partner information becomes available
+    # through a non-PDF channel (e.g. engagement letter, cover page).
+    notes: "HCLLP — primary firm for this pipeline. Signature is image-only."

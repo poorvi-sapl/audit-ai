@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Audit AI — ER Diagram</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #fff; }
+  h1 { color: #1F3864; font-size: 22px; margin-bottom: 4px; }
+  p  { color: #595959; font-size: 13px; margin-bottom: 20px; }
+  #erd { width: 100%; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>Audit AI — Database ER Diagram</h1>
+<p>Mistral 22B Audit Workpaper Intelligence — 14 PostgreSQL tables — April 2026 v2.0 (reconciled with master architecture doc)</p>
+<div id="erd" class="mermaid">
+erDiagram
+  firms {
+    uuid id PK
+    string name
+    string slug
+    string country
+    bool is_active
+    timestamp created_at
+  }
+  users {
+    uuid id PK
+    uuid firm_id FK
+    string email
+    string hashed_password
+    string full_name
+    string role
+    string tier
+    bool is_active
+    timestamp last_login_at
+    string azure_oid
+    timestamp created_at
+    timestamp updated_at
+  }
+  engagements {
+    uuid id PK
+    uuid firm_id FK
+    string engagement_code
+    string name
+    string client_name
+    string entity_alias
+    string client_type
+    bool is_gagas
+    bool has_single_audit
+    string other_subtype
+    int fiscal_year
+    string phase
+    string status
+    int total_workpapers
+    string default_export_format
+    string default_export_template
+    uuid created_by FK
+    timestamp created_at
+  }
+  workpapers {
+    uuid id PK
+    uuid engagement_id FK
+    string workpaper_ref
+    string section
+    string file_name
+    string file_hash
+    string file_type
+    int file_size_bytes
+    string workpaper_type
+    int sheet_count
+    int total_tokens
+    int year_of_workpaper
+    string extraction_status
+    string status
+    uuid upload_by FK
+    bool ocr_used
+    bool pii_scrubbed
+    string mongo_raw_id
+    timestamp extracted_at
+    timestamp created_at
+    timestamp updated_at
+  }
+  workpaper_chunks {
+    uuid id PK
+    uuid workpaper_id FK
+    string sheet_name
+    int chunk_index
+    int total_chunks
+    int token_count
+    json content_json
+    bool embedding_synced
+    timestamp created_at
+  }
+  cleaning_log {
+    uuid id PK
+    uuid workpaper_id FK
+    string cleaning_action
+    string[] pii_types_found
+    uuid is_duplicate_of
+    float similarity_score
+    json detail_json
+    string cleaned_by
+    timestamp cleaned_at
+  }
+  sft_training_pairs {
+    uuid id PK
+    uuid workpaper_id FK
+    uuid engagement_id FK
+    string pair_type
+    string mongo_pair_id
+    string split_assignment
+    float quality_score
+    bool reviewer_approved
+    string framework_section
+    timestamp reviewed_at
+    timestamp created_at
+  }
+  eval_results {
+    uuid id PK
+    uuid pair_id FK
+    uuid evaluator_id FK
+    string evaluator_role
+    bool would_sign_off
+    int accuracy_score
+    bool hallucination_found
+    text hallucination_detail
+    text notes
+    timestamp evaluated_at
+  }
+  model_outputs {
+    uuid id PK
+    uuid workpaper_id FK
+    uuid chunk_id FK
+    string task_type
+    string risk_level
+    text finding
+    json regulation_cited
+    text recommendation
+    float confidence_score
+    string model_version
+    string output_status
+    uuid reviewer_id FK
+    bool rag_used
+    int processing_time_ms
+    string mongo_reasoning_id
+    bool embedding_synced
+    timestamp reviewed_at
+    timestamp created_at
+  }
+  feedback_events {
+    uuid id PK
+    uuid output_id FK
+    uuid reviewer_id FK
+    string reviewer_tier
+    string rating
+    json corrected_output
+    text feedback_note
+    string model_version
+    timestamp created_at
+  }
+  dpo_candidates {
+    uuid id PK
+    uuid feedback_id FK
+    string mongo_pair_id
+    float quality_score
+    string reviewer_tier
+    bool used_in_run
+    uuid training_run_id FK
+    timestamp created_at
+  }
+  training_runs {
+    uuid id PK
+    string run_name
+    string run_type
+    string base_model_version
+    string dataset_hash
+    int pair_count
+    int epochs
+    float f1_before
+    float f1_after
+    float hallucination_before
+    float hallucination_after
+    string status
+    uuid signed_off_by FK
+    timestamp signed_off_at
+    timestamp created_at
+  }
+  model_versions {
+    uuid id PK
+    string version_tag
+    string adapter_path
+    string base_model
+    uuid training_run_id FK
+    float f1_score
+    float hallucination_rate
+    float format_compliance
+    bool is_current
+    timestamp deployed_at
+    timestamp created_at
+  }
+  audit_trail {
+    uuid id PK
+    string entity_type
+    uuid entity_id
+    string event_type
+    uuid actor_id FK
+    json metadata
+    timestamp event_time
+  }
+
+  firms ||--o{ engagements : owns
+  firms ||--o{ users : has
+  users ||--o{ engagements : creates
+  users ||--o{ workpapers : uploads
+  users ||--o{ model_outputs : reviews
+  users ||--o{ feedback_events : gives
+  users ||--o{ eval_results : evaluates
+  users ||--o{ training_runs : signs-off
+  users ||--o{ audit_trail : actor
+  engagements ||--o{ workpapers : contains
+  engagements ||--o{ sft_training_pairs : split-by
+  workpapers ||--o{ workpaper_chunks : split-into
+  workpapers ||--o{ cleaning_log : logged-in
+  workpapers ||--o{ sft_training_pairs : source-of
+  workpapers ||--o{ model_outputs : analyzed-by
+  workpaper_chunks ||--o{ model_outputs : chunk-input-of
+  sft_training_pairs ||--o{ eval_results : evaluated-by
+  model_outputs ||--o{ feedback_events : receives
+  feedback_events ||--o| dpo_candidates : produces
+  dpo_candidates }o--|| training_runs : consumed-by
+  training_runs ||--o| model_versions : produces
+</div>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      fontSize: '13px',
+      fontFamily: 'Arial, sans-serif',
+      lineColor: '#73726c',
+      textColor: '#3d3d3a',
+      primaryColor: '#E6F1FB',
+      primaryTextColor: '#042C53',
+      primaryBorderColor: '#185FA5',
+    },
+    er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75 }
+  });
+</script>
+</body>
+</html>

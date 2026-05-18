@@ -1,0 +1,768 @@
+﻿<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="Microsoft Word">
+<style>
+  @page {
+    size: 8.5in 11in;
+    margin: 1.0in 1.1in 1.0in 1.1in;
+  }
+  body {
+    font-family: Calibri, sans-serif;
+    font-size: 11pt;
+    color: #1a1a1a;
+    line-height: 1.5;
+    margin: 0; padding: 0;
+  }
+
+  /* Cover */
+  .cover {
+    background-color: #1B3A6B;
+    color: #fff;
+    padding: 36pt 40pt 32pt 40pt;
+    margin-bottom: 24pt;
+  }
+  .cover-firm { font-size: 9.5pt; letter-spacing: 2pt; text-transform: uppercase; color: #A8C4E8; margin-bottom: 10pt; }
+  .cover-title { font-size: 22pt; font-weight: bold; line-height: 1.2; margin-bottom: 6pt; }
+  .cover-subtitle { font-size: 12pt; color: #C8D8F0; margin-bottom: 18pt; }
+  .cover-meta { font-size: 9.5pt; color: #A8C4E8; border-top: 1px solid #3A5A8C; padding-top: 10pt; }
+
+  /* Headings */
+  h1 { font-size: 15pt; font-weight: bold; color: #1B3A6B; border-bottom: 2px solid #1B3A6B; padding-bottom: 4pt; margin-top: 30pt; margin-bottom: 10pt; page-break-after: avoid; }
+  h2 { font-size: 12pt; font-weight: bold; color: #2C5F9E; margin-top: 18pt; margin-bottom: 6pt; page-break-after: avoid; }
+  h3 { font-size: 11pt; font-weight: bold; color: #1a1a1a; margin-top: 14pt; margin-bottom: 4pt; page-break-after: avoid; }
+
+  p { margin-top: 0; margin-bottom: 7pt; }
+  ul, ol { margin-top: 4pt; margin-bottom: 8pt; padding-left: 22pt; }
+  li { margin-bottom: 4pt; }
+
+  /* Callouts */
+  .box-blue  { background:#EEF4FF; border-left:4pt solid #1B3A6B; padding:10pt 14pt; margin:12pt 0; font-size:10.5pt; }
+  .box-green { background:#F0FFF4; border-left:4pt solid #1E8449; padding:10pt 14pt; margin:12pt 0; font-size:10.5pt; }
+  .box-yellow{ background:#FFF9E6; border-left:4pt solid #C8900A; padding:10pt 14pt; margin:12pt 0; font-size:10.5pt; }
+  .box-teal  { background:#E8F8F5; border-left:4pt solid #117A65; padding:10pt 14pt; margin:12pt 0; font-size:10.5pt; }
+
+  /* Tables */
+  table { border-collapse:collapse; width:100%; margin:10pt 0 14pt 0; font-size:10.5pt; }
+  th { background:#1B3A6B; color:#fff; font-weight:bold; text-align:left; padding:7pt 10pt; border:1pt solid #1B3A6B; }
+  td { padding:6pt 10pt; border:1pt solid #C8D4E4; vertical-align:top; }
+  tr:nth-child(even) td { background:#F4F7FC; }
+
+  /* Flow diagram box */
+  .flow-wrap { margin: 14pt 0; }
+  .flow-box {
+    display: inline-block;
+    background: #fff;
+    border: 1.5pt solid #2C5F9E;
+    border-radius: 4pt;
+    padding: 8pt 14pt;
+    font-size: 10pt;
+    min-width: 160pt;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .flow-box.highlight { background: #1B3A6B; color: #fff; border-color: #1B3A6B; }
+  .flow-box.gold     { background: #FFF3CD; border-color: #C8900A; }
+  .flow-box.green    { background: #D5F5E3; border-color: #1E8449; }
+  .flow-box.teal     { background: #D1F2EB; border-color: #117A65; }
+  .flow-arrow { font-size: 14pt; color: #2C5F9E; vertical-align: middle; padding: 0 6pt; }
+  .flow-row { margin: 6pt 0; }
+
+  /* Stage cards */
+  .stage-card {
+    border: 1.5pt solid #D0D8EC;
+    border-radius: 4pt;
+    margin: 12pt 0;
+    overflow: hidden;
+  }
+  .stage-header {
+    padding: 8pt 14pt;
+    font-weight: bold;
+    font-size: 11pt;
+    color: #fff;
+  }
+  .stage-body { padding: 10pt 14pt; font-size: 10.5pt; }
+  .s1 { background: #1B3A6B; }
+  .s2 { background: #2C5F9E; }
+  .s3 { background: #117A65; }
+  .sR { background: #6D4C41; }
+
+  /* Code / path */
+  .code { font-family: Consolas, monospace; font-size: 9.5pt; background:#F5F5F5; border:1pt solid #D0D0D0; padding:8pt 12pt; margin:8pt 0; display:block; white-space:pre; }
+
+  /* Checklist */
+  .checklist { list-style:none; padding-left:4pt; }
+  .checklist li { margin-bottom:5pt; }
+  .checklist li::before { content:"\2610  "; font-size:12pt; color:#1B3A6B; }
+
+  .footer-note { font-size:8.5pt; color:#888; border-top:1pt solid #D0D0D0; margin-top:30pt; padding-top:8pt; }
+  .page-break { page-break-before: always; }
+
+  .label-pill {
+    display:inline-block; padding:2pt 8pt; border-radius:10pt;
+    font-size:9pt; font-weight:bold; margin-right:4pt;
+  }
+  .pill-blue   { background:#D6E4F7; color:#1B3A6B; }
+  .pill-orange { background:#FAE5BF; color:#7D4E00; }
+  .pill-red    { background:#FADBD8; color:#922B21; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-firm">Harshwal &amp; Company LLP &nbsp;|&nbsp; Internal Project Document</div>
+  <div class="cover-title">Audit AI<br>How It Learns &amp; How It Works</div>
+  <div class="cover-subtitle">A plain-language guide for the audit team — your role in each training stage, how the AI uses your past work at query time, and how the Audit Calculation Engine ensures all arithmetic is verified before the AI writes a single word</div>
+  <div class="cover-meta">Version 1.0 &nbsp;&bull;&nbsp; April 2026 &nbsp;&bull;&nbsp; Confidential — Internal Use Only</div>
+</div>
+
+
+<!-- SECTION 1 -->
+<h1>1. The Big Picture — How Audit AI Learns</h1>
+
+<p>Think of Audit AI like a new team member who needs to be trained. Except instead of shadowing one senior auditor for a year, it reads every finalized engagement HCLLP has completed over the past 15 years — across all framework types, all clients, all partners — and builds a mental model of how good audit work looks.</p>
+
+<p>This training happens in three stages. Each stage builds on the one before it. Your role as the audit team is to <strong>prepare and label the source material</strong> so the system knows what it is reading and how much to trust it.</p>
+
+<div class="flow-wrap">
+  <table style="border:none; width:100%;">
+    <tr style="background:transparent;">
+      <td style="border:none; text-align:center; padding:6pt;">
+        <div class="flow-box highlight" style="width:100%;">
+          <strong>Stage 1 — Mass Training</strong><br>
+          <span style="font-size:9pt; font-weight:normal;">All frameworks · All years<br>Foundation: audit vocabulary &amp; style</span>
+        </div>
+      </td>
+      <td style="border:none; text-align:center; width:30pt; font-size:18pt; color:#2C5F9E;">→</td>
+      <td style="border:none; text-align:center; padding:6pt;">
+        <div class="flow-box" style="width:100%; background:#D6E4F7;">
+          <strong>Stage 2 — Framework Training</strong><br>
+          <span style="font-size:9pt;">One track per framework<br>Sharpens: citation precision &amp; judgment</span>
+        </div>
+      </td>
+      <td style="border:none; text-align:center; width:30pt; font-size:18pt; color:#2C5F9E;">→</td>
+      <td style="border:none; text-align:center; padding:6pt;">
+        <div class="flow-box green" style="width:100%;">
+          <strong>Stage 3 — Refinement</strong><br>
+          <span style="font-size:9pt;">Gold-standard workpapers only<br>Fixes: systematic weaknesses</span>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>Alongside all three stages, the same workpapers also build the <strong>RAG Knowledge Base</strong> — the searchable library that Audit AI consults every time an auditor asks it a question. This is explained in Section 5.</p>
+
+
+<!-- SECTION 2 -->
+<h1>2. What the Audit Team Prepares — and Why It Is Not Just "Exporting Files"</h1>
+
+<p>Raw workpaper files alone are not enough. The AI system converts every workpaper into structured question-and-answer pairs before training. To do this correctly, it needs to know:</p>
+
+<ul>
+  <li><strong>What kind of workpaper this is</strong> — is it a compliance test? A finding? A trial balance? Each type generates different kinds of training examples.</li>
+  <li><strong>Which phase of the audit it came from</strong> — a planning document has different content patterns than a completion workpaper.</li>
+  <li><strong>How time-sensitive its content is</strong> — a workpaper referencing specific dollar thresholds from 2012 should not be treated the same as one from 2024. But a workpaper explaining <em>how</em> to conduct a bank reconciliation test is just as valid in 2012 as it is today.</li>
+</ul>
+
+<p>The audit team provides this information through a simple labeling file — one per engagement — called <strong>engagement_labels.csv</strong>. Every engagement folder submitted to the system must include this file.</p>
+
+<div class="stage-card" style="border-left:4pt solid #C0392B; margin:12pt 0;">
+  <div class="stage-header" style="background:#C0392B;">&#9888; Labels must be complete before training pairs are built</div>
+  <div class="stage-body">
+    <p>Before the system generates training questions from a workpaper, it checks that <strong>every workpaper in the engagement has a <code>workpaper_type</code> label</strong>. If any workpaper is missing its label, the training pair build step is <strong>blocked for the entire engagement</strong> and the system flags the engagement for re-submission.</p>
+    <p><strong>What this means for you:</strong> Make sure <code>engagement_labels.csv</code> has one complete row for every workpaper before placing the engagement folder in the intake directory. A folder with a partially filled label file will be extracted and indexed normally — but it will not contribute to model training until labels are complete.</p>
+    <p>You will receive a notification from the ML team if an engagement is blocked at this step.</p>
+  </div>
+</div>
+
+<h2>2.1 The Three Labels You Assign Per Workpaper</h2>
+
+<table>
+  <tr><th>Label</th><th>What you choose</th><th>What it controls</th></tr>
+  <tr>
+    <td><strong>workpaper_type</strong></td>
+    <td>One of: bank_reconciliation, trial_balance, financial_statements, analytical_procedure, compliance_test, internal_control, risk_assessment, substantive_test, disclosure_note, management_letter, audit_program, other</td>
+    <td>Determines which type of training question is built from this workpaper. A <em>finding</em> workpaper generates "here is the condition — draft the criteria, cause, effect, and recommendation." A <em>risk_assessment</em> generates "here is the risk — what is the appropriate audit response?"</td>
+  </tr>
+  <tr>
+    <td><strong>audit_phase</strong></td>
+    <td>One of: planning, fieldwork, completion, reporting</td>
+    <td>Added as context to every training question. Helps the model understand that planning documents have different vocabulary and purpose than fieldwork documents.</td>
+  </tr>
+  <tr>
+    <td><strong>time_sensitivity</strong></td>
+    <td>One of: <span class="label-pill pill-blue">timeless</span> <span class="label-pill pill-orange">time_static</span> <span class="label-pill pill-red">time_sensitive</span></td>
+    <td>Sets how much this workpaper's content influences the model. Old time-sensitive content (specific thresholds, superseded regulation versions) is heavily down-weighted. Old timeless content (audit methodology) is kept at full weight. See Section 2.2.</td>
+  </tr>
+</table>
+
+<h2>2.2 Understanding time_sensitivity — The Most Important Label</h2>
+
+<p>This is the label that most directly protects the model from learning outdated information. Here is how to think about it:</p>
+
+<div class="stage-card">
+  <div class="stage-header s1"><span class="label-pill" style="background:#fff;color:#1B3A6B;">timeless</span> — Methodology that does not expire</div>
+  <div class="stage-body">
+    <p><strong>Use when:</strong> The workpaper is about <em>how</em> to do something — the objective of a test, how a finding should be structured, what independence requires. If you removed every dollar amount and every specific regulation citation from this workpaper, the remaining content would still teach a new auditor something valid today.</p>
+    <p><strong>Effect:</strong> No age penalty. A 2009 timeless workpaper gets the exact same training weight as a 2024 one.</p>
+    <p><strong>Examples:</strong> A narrative explaining the purpose of a bank reconciliation test. An audit program describing the steps in a risk assessment. An internal control narrative explaining how a control works — not whether it met a specific threshold.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header s2"><span class="label-pill" style="background:#fff;color:#2C5F9E;">time_static</span> — Standard practice that ages slowly</div>
+  <div class="stage-body">
+    <p><strong>Use when:</strong> The workpaper follows standard audit practice and would still be a reasonable reference, but some details — procedures, sampling approaches, regulatory language — may have been updated since. The approach is valid; you just would not cite it as your only source.</p>
+    <p><strong>Effect:</strong> Gradual weight reduction based on age. Recent workpapers count more than old ones, but old ones still contribute meaningfully.</p>
+    <p><strong>Examples:</strong> A compliance test documenting the procedure used to test a requirement — the procedure itself is still valid, even if minor guidance has changed. A risk assessment that identifies risks correctly but may not reference the latest risk assessment standard update.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header" style="background:#C0392B;"><span class="label-pill" style="background:#fff;color:#C0392B;">time_sensitive</span> — Threshold or regulation-version dependent</div>
+  <div class="stage-body">
+    <p><strong>Use when:</strong> The workpaper directly references specific dollar amounts, audit thresholds, or regulation versions that have changed. If the model learned from this at full weight, it might generate outputs using outdated thresholds.</p>
+    <p><strong>Effect:</strong> Aggressive age penalty. A time_sensitive workpaper from 2012 contributes almost nothing to training. A 2023 one contributes at reduced but meaningful weight.</p>
+    <p><strong>Examples:</strong> A SEFA schedule (dollar amounts change every year). A compliance test explicitly citing the "$500,000 OMB A-133 threshold" (superseded — now $750,000 under 2 CFR 200). A materiality worksheet with specific calculated amounts.</p>
+  </div>
+</div>
+
+<div class="box-yellow">
+  <strong>Quick rule of thumb:</strong> If you removed all the numbers and regulation citations, is the methodology still useful? → <strong>timeless</strong>. Standard approach, no specific thresholds? → <strong>time_static</strong>. Has dollar amounts or regulation versions you know have changed? → <strong>time_sensitive</strong>.
+</div>
+
+<h2>2.3 Sample Labels File</h2>
+
+<div class="code">workpaper_ref, workpaper_type,   audit_phase, time_sensitivity,  primary_regulation,  notes
+C-1,          compliance_test,  fieldwork,   time_sensitive,   2 CFR 200.516,       CDBG cluster
+C-2,          compliance_test,  fieldwork,   time_sensitive,   2 CFR 200.302,       Internal controls
+F-3,          sefa,             reporting,   time_sensitive,   ,                    Dollar amounts year-specific
+ML-1,         management_letter,reporting,  time_static,      ,                    3 recommendations
+TB-1,         trial_balance,    fieldwork,   time_sensitive,   ,                    Balances year-specific
+IC-1,         internal_control, fieldwork,   timeless,         ,                    Control methodology
+PL-1,         planning,         planning,    timeless,         ,                    Audit program steps</div>
+
+<p>The blank template file is available from the project team. One file per engagement folder, named exactly <strong>engagement_labels.csv</strong>.</p>
+
+
+<!-- SECTION 3 -->
+<h1>3. Stage 1 — Mass Training: The Foundation</h1>
+
+<div class="box-blue">
+  <strong>Analogy:</strong> Imagine you hired a new senior auditor and gave them every finalized HCLLP workpaper from the past 15 years to read — across every client type, every framework. By the end, they would understand how HCLLP writes findings, how we structure compliance tests, what a good management letter looks like, and how we document conclusions. They would not yet be an expert in any one framework — but they would speak the firm's language fluently. That is what Stage 1 does.
+</div>
+
+<h2>3.1 What Goes In</h2>
+
+<ul>
+  <li><strong>All finalized engagements</strong>, all years (2009–present)</li>
+  <li><strong>All framework types</strong>: Single Audit, GAGAS, GAAS — mixed together intentionally</li>
+  <li>Every labeled workpaper with its <code>engagement_labels.csv</code></li>
+</ul>
+
+<h2>3.2 What the System Does With It</h2>
+
+<p>The ETL pipeline reads every workpaper, cleans it, splits it into sections, and generates training question-answer pairs:</p>
+
+<div class="flow-wrap">
+  <table style="border:none; width:100%;">
+    <tr style="background:transparent;">
+      <td style="border:none; padding:4pt; text-align:center;"><div class="flow-box" style="width:100%;">Labeled workpaper<br><span style="font-size:9pt;">PDF / Excel / Word</span></div></td>
+      <td style="border:none; text-align:center; font-size:16pt; color:#2C5F9E; width:20pt;">→</td>
+      <td style="border:none; padding:4pt; text-align:center;"><div class="flow-box" style="width:100%;">ETL Pipeline<br><span style="font-size:9pt;">Clean · Split · Label</span></div></td>
+      <td style="border:none; text-align:center; font-size:16pt; color:#2C5F9E; width:20pt;">→</td>
+      <td style="border:none; padding:4pt; text-align:center;"><div class="flow-box" style="width:100%;">Training Pairs<br><span style="font-size:9pt;">Question → Answer format</span></div></td>
+      <td style="border:none; text-align:center; font-size:16pt; color:#2C5F9E; width:20pt;">→</td>
+      <td style="border:none; padding:4pt; text-align:center;"><div class="flow-box highlight" style="width:100%;">Stage 1 Training<br><span style="font-size:9pt;">Model reads all pairs<br>weighted by time_sensitivity</span></div></td>
+    </tr>
+  </table>
+</div>
+
+<p>The four types of question-answer pairs generated from workpapers are:</p>
+
+<table>
+  <tr><th>Pair Type</th><th>The "Question" given to the model</th><th>The "Answer" the model learns to produce</th></tr>
+  <tr><td><strong>Procedure → Conclusion</strong></td><td>Here is an audit procedure performed, the sample size, and any exceptions found.</td><td>State the audit conclusion and control assessment.</td></tr>
+  <tr><td><strong>Risk → Response</strong></td><td>Here is an identified risk factor and the entity context.</td><td>Classify the risk (Critical/High/Medium/Low) and describe the appropriate audit response.</td></tr>
+  <tr><td><strong>Finding → Recommendation</strong></td><td>Here is the condition, criteria, cause, and effect found in the workpaper.</td><td>Draft the recommendation and corrective action for management.</td></tr>
+  <tr><td><strong>Data → Narrative</strong></td><td>Here are the financial figures, variances, and ratios from this workpaper.</td><td>Write a concise analytical narrative for partner review.</td></tr>
+</table>
+
+<h2>3.3 How time_sensitivity Changes the Training Weight</h2>
+
+<p>Not all pairs are treated equally. The <code>time_sensitivity</code> label you assigned is used here:</p>
+
+<table>
+  <tr><th>Label assigned</th><th>Workpaper age</th><th>Final training weight</th><th>Practical meaning</th></tr>
+  <tr><td><span class="label-pill pill-blue">timeless</span></td><td>Any year</td><td><strong>1.00 (full)</strong></td><td>A 2009 bank rec methodology workpaper counts the same as a 2024 one</td></tr>
+  <tr><td><span class="label-pill pill-orange">time_static</span></td><td>2024–2026</td><td>1.00</td><td rowspan="6">Gradual decay — recent content counts more, but older content still contributes</td></tr>
+  <tr><td><span class="label-pill pill-orange">time_static</span></td><td>2022–2023</td><td>0.85</td></tr>
+  <tr><td><span class="label-pill pill-orange">time_static</span></td><td>2018–2019</td><td>0.50</td></tr>
+  <tr><td><span class="label-pill pill-orange">time_static</span></td><td>Before 2015</td><td>0.10</td></tr>
+  <tr><td><span class="label-pill pill-red">time_sensitive</span></td><td>2024–2026</td><td>0.50</td><td>Extra 50% cut on top of age — threshold content from recent years counts at half strength</td></tr>
+  <tr><td><span class="label-pill pill-red">time_sensitive</span></td><td>Before 2015</td><td>0.05</td><td>Near-zero — a 2012 SEFA schedule with a $500K OMB A-133 threshold barely enters training</td></tr>
+</table>
+
+<h2>3.4 Audit Team Action for Stage 1</h2>
+
+<ul class="checklist">
+  <li>Export all finalized engagements from Caseware (all frameworks, all years) using the naming convention in the Data Preparation Guide</li>
+  <li>Complete <code>engagement_labels.csv</code> for every engagement folder — one row per workpaper</li>
+  <li>Have a senior auditor or manager review the <code>time_sensitivity</code> labels before submission</li>
+  <li>Place each folder in the <code>/intake/</code> directory on Server 1</li>
+</ul>
+
+<p><em>No other action is required from the audit team for Stage 1 to run. The rest is automated.</em></p>
+
+
+<!-- SECTION 4 -->
+<h1>4. Stage 2 — Framework-Specific Training: Sharpening the Judgment</h1>
+
+<div class="box-blue">
+  <strong>Analogy:</strong> After your new hire has read all 15 years of workpapers, you now sit them down with a specialist in each framework — one week with a Single Audit expert, one week with a GAGAS expert, and so on. By the end, they can not only write in HCLLP's style — they can apply the precise judgment each framework requires, without mixing them up. That is what Stage 2 does.
+</div>
+
+<h2>4.1 What Goes In</h2>
+
+<p>Stage 2 does <strong>not</strong> require new workpaper exports. It uses the same training pairs that were already generated in Stage 1 — but this time, it runs a separate focused training session for each framework type:</p>
+
+<table>
+  <tr><th>Track</th><th>Training data used</th><th>What the model sharpens</th></tr>
+  <tr>
+    <td><strong>Track A — Single Audit</strong></td>
+    <td>All Single Audit pairs from Stage 1</td>
+    <td>2 CFR 200 citation precision, SEFA structure, federal cluster compliance logic, $750K threshold application, questioned costs documentation</td>
+  </tr>
+  <tr>
+    <td><strong>Track B — GAGAS</strong></td>
+    <td>All GAGAS pairs from Stage 1</td>
+    <td>Yellow Book independence language, performance audit reporting format, distinguishing financial from performance audit findings</td>
+  </tr>
+  <tr>
+    <td><strong>Track C — GAAS</strong></td>
+    <td>All GAAS pairs from Stage 1</td>
+    <td>AU-C cross-references, private-sector risk and materiality language, going concern assessment, management representation requirements</td>
+  </tr>
+</table>
+
+<p>Each track <strong>continues from the Stage 1 model checkpoint</strong> — it does not restart from scratch. This is the key design choice that prevents the model from forgetting what it learned in Stage 1 when it focuses on one framework.</p>
+
+<h2>4.2 How the Three Tracks Relate to Inference</h2>
+
+<p>After Stage 2, there are three framework-specific model versions. When an auditor uses Audit AI in the live system and selects their engagement, the system automatically loads the correct model version for that engagement type:</p>
+
+<table>
+  <tr><th>Engagement type selected by auditor</th><th>Model version loaded</th><th>Phase 1 availability</th></tr>
+  <tr><td>Single Audit (Uniform Guidance)</td><td>Single Audit track — Stage 2 checkpoint</td><td>✓ Live at go-live</td></tr>
+  <tr><td>GAGAS (Yellow Book)</td><td>GAGAS track — Stage 2 checkpoint</td><td>After 80% sign-off gate passed</td></tr>
+  <tr><td>GAAS (AU-C)</td><td>GAAS track — Stage 2 checkpoint</td><td>After 80% sign-off gate passed</td></tr>
+</table>
+
+<div class="box-yellow">
+  <strong>Note on the 80% gate:</strong> This gate controls what the live system <em>serves to auditors</em> — not what the model <em>trains on</em>. All three tracks train from day one. The gate ensures that only a framework that has passed a blind senior auditor review at ≥ 80% approval is made available for live use. Single Audit goes first because it has the largest, most recent training corpus.
+</div>
+
+<h2>4.3 Audit Team Action for Stage 2</h2>
+
+<p>Minimal action required from the audit team at this stage:</p>
+
+<ul class="checklist">
+  <li>Confirm with the project team that your Stage 1 submission covered all framework types completely — particularly GAGAS and GAAS engagements</li>
+  <li>If any framework was under-represented in Stage 1 (e.g., fewer than 20 finalized GAAS engagements), provide supplemental exports with labels at this point</li>
+  <li>Participate in the <strong>blind review</strong> after Stage 2 is complete: senior auditors and partners review 250 AI outputs and rate them — this is what determines the 80% gate</li>
+</ul>
+
+
+<!-- SECTION 5 -->
+<h1>5. Stage 3 — Targeted Refinement: Fixing What the Review Finds</h1>
+
+<div class="box-teal">
+  <strong>What triggers Stage 3:</strong> After the blind review of Stage 2 outputs, the project team identifies patterns in what the model gets wrong. For example: it may consistently write vague management letter recommendations, or it may misclassify a particular type of finding. Stage 3 is a focused re-training session using only the highest-quality workpapers that demonstrate correct handling of those exact issues.
+</div>
+
+<h2>5.1 What Goes In</h2>
+
+<p>Stage 3 uses the <strong>partner-nominated gold-standard workpapers</strong> — the 50–100 engagements identified as HCLLP's best work — filtered to pairs with the highest quality scores and refined against the specific weaknesses found in the Stage 2 review.</p>
+
+<p>No new exports are required. These workpapers are already in the system from the original Stage 1 intake. Partners nominated them by flagging their best engagements during the initial data preparation phase.</p>
+
+<h2>5.2 Audit Team Action for Stage 3</h2>
+
+<ul class="checklist">
+  <li>Partners: ensure your best-work nominations were submitted during Stage 1 intake (see Data Preparation Guide Section 3.3)</li>
+  <li>Senior auditors: participate in the targeted review session after Stage 3 runs — the project team will provide a focused set of 50 outputs covering the specific weakness areas</li>
+</ul>
+
+
+<!-- SECTION 6 — RAG -->
+<h1>6. The RAG Knowledge Base — How Audit AI Searches Your Past Work at Query Time</h1>
+
+<p>The three training stages teach Audit AI <em>how</em> to do audit work. The RAG Knowledge Base teaches it <em>what HCLLP has done before</em> — and makes that institutional knowledge available every time an auditor asks a question.</p>
+
+<p>RAG stands for Retrieval-Augmented Generation. The idea is simple: instead of relying only on what the model was trained on, every time an auditor makes a request, the system first <strong>searches the knowledge base for the most relevant past workpaper examples</strong> and includes them in the answer it generates.</p>
+
+<div class="box-blue">
+  <strong>Analogy:</strong> Imagine before answering any audit question, you had the ability to instantly search through every workpaper the firm has ever prepared, pull out the 5 most relevant ones, and read them before drafting your response. That is exactly what Audit AI does — in under a second.
+</div>
+
+<h2>6.1 How the Knowledge Base Is Built</h2>
+
+<p>The knowledge base is built automatically from the same workpapers the audit team submits for training. No separate action is required. As the ETL pipeline processes each workpaper, it also:</p>
+
+<ol>
+  <li>Converts every workpaper section into a <strong>mathematical fingerprint</strong> (called a vector embedding — a list of 4,096 numbers that captures the meaning and context of the text)</li>
+  <li>Stores that fingerprint in the <strong>Qdrant vector database</strong> alongside the original text</li>
+  <li>For gold-standard validated findings, also stores them in a separate <strong>Validated Findings</strong> collection for consistency checks</li>
+</ol>
+
+<p>The result is a searchable library of every workpaper section the firm has ever produced, indexed not by keyword but by <em>meaning</em>. Searching for "questioned costs finding in a CDBG program" will surface relevant workpaper sections even if they use different wording.</p>
+
+<h2>6.2 How Audit AI Uses the Knowledge Base at Inference Time</h2>
+
+<p>This is the full flow from the moment an auditor uploads a workpaper and asks a question to the moment the AI-assisted draft appears on screen:</p>
+
+<div class="stage-card" style="margin-top:16pt;">
+  <div class="stage-header" style="background:#4A235A;">Step 1 — Auditor Input</div>
+  <div class="stage-body">
+    <p>The auditor selects an engagement, uploads a workpaper (or selects one already in the system), and triggers an analysis — for example: <em>"Document the finding for this compliance exception."</em></p>
+    <p>The workpaper goes through the same extraction and cleaning pipeline as the training data. It is split into sections. Each section is converted into a mathematical fingerprint using the same embedding model used to index the knowledge base.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header" style="background:#1A5276;">Step 2 — Knowledge Base Search</div>
+  <div class="stage-body">
+    <p>The system takes the fingerprint of the current workpaper section and searches the Qdrant knowledge base for the <strong>20 most mathematically similar</strong> past workpaper sections across all finalized engagements in the firm's history.</p>
+    <p>The search is filtered by:</p>
+    <ul>
+      <li><strong>Framework type</strong> — a Single Audit question only searches Single Audit past work</li>
+      <li><strong>Recency</strong> — more recent workpapers are ranked slightly higher than older ones</li>
+      <li><strong>PII scrubbed</strong> — only workpapers that have been fully anonymized are returned</li>
+    </ul>
+    <p>The result is a list of 20 candidate past workpaper sections that are contextually similar to the current question.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header" style="background:#117A65;">Step 3 — Reranking (Selecting the Best)</div>
+  <div class="stage-body">
+    <p>The 20 candidates are passed through a <strong>reranker</strong> — a second AI model that reads each candidate alongside the current workpaper section and scores how genuinely relevant it is (not just mathematically similar, but contextually relevant to this specific question).</p>
+    <p>The top 5 highest-scoring candidates are selected. These become the <strong>retrieved context</strong>.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header" style="background:#7D6608;">Step 4 — Consistency Check (Validated Findings)</div>
+  <div class="stage-body">
+    <p>Separately, the system also searches the <strong>Validated Findings</strong> collection — which contains only findings that have been reviewed and approved by a senior auditor or partner. It retrieves the 3 most similar past approved findings.</p>
+    <p>These are used to ensure the new output is consistent with how HCLLP has documented similar situations in the past. If the firm always phrases a particular type of recommendation a certain way, the model will see that pattern and follow it.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header" style="background:#1B3A6B;">Step 5 — Context Assembly and Generation</div>
+  <div class="stage-body">
+    <p>The model receives a carefully assembled prompt containing <strong>six components</strong>:</p>
+    <ol>
+      <li><strong>System context</strong>: Client type (NPO or Govt), GAGAS applicability, Single Audit flag, fiscal year</li>
+      <li><strong>Retrieved context</strong>: The 5 most relevant past workpaper sections (from Step 3), anonymized</li>
+      <li><strong>Consistency context</strong>: The 3 most similar past approved findings (from Step 4)</li>
+      <li><strong>Computed audit facts</strong>: Pre-calculated figures from the Audit Calculation Engine (see Section 7) — materiality, reconciliation totals, threshold breach results, variances. The model is explicitly told <em>"do not recalculate — these figures are Python-verified."</em></li>
+      <li><strong>Current workpaper</strong>: The section the auditor is asking about</li>
+      <li><strong>Task instruction</strong>: What the auditor has asked for (finding documentation, risk classification, etc.)</li>
+    </ol>
+    <p>The model generates its response with all of this in its "working memory" — the context window. Critically, <strong>all arithmetic is done before the model sees the workpaper.</strong> The model reads verified numbers and writes the analysis — it does not compute anything itself.</p>
+  </div>
+</div>
+
+<div class="stage-card">
+  <div class="stage-header" style="background:#922B21;">Step 6 — Validation and Output</div>
+  <div class="stage-body">
+    <p>Before the result reaches the auditor, an automated validator checks:</p>
+    <ul>
+      <li>Every regulation citation against the master regulations list — any unrecognized citation is flagged</li>
+      <li>Every dollar threshold against the current year's threshold file — any mismatch is flagged</li>
+      <li>The output for any language that resembles a signed audit opinion — these are blocked</li>
+      <li>All required fields are present — if any are missing, one retry is attempted</li>
+    </ul>
+    <p>The final output is presented to the auditor labeled: <em>"AI-Assisted Draft — Requires Senior Auditor Review Before Use."</em> The auditor can see which past workpaper sections were used as reference (the retrieved context), can approve the output, edit it, or reject it entirely.</p>
+  </div>
+</div>
+
+<h2>6.3 The Complete Inference Flow — Visual Summary</h2>
+
+<p style="font-size:10pt; color:#555; margin-bottom:8pt;">The calculation engine (Step A) runs in parallel with the knowledge base search (Steps 2–3) — both complete before the AI model receives anything. There is no extra waiting time.</p>
+
+<table style="border:none; width:100%; margin-top:6pt;">
+  <!-- Row 1: Main flow -->
+  <tr style="background:transparent;">
+    <td style="border:none; text-align:center; padding:4pt; width:13%;">
+      <div class="flow-box" style="width:100%; font-size:9.5pt;">
+        <strong>Auditor</strong><br>uploads workpaper<br>selects task
+      </div>
+    </td>
+    <td style="border:none; text-align:center; width:4%; font-size:16pt; color:#2C5F9E;">→</td>
+    <td style="border:none; text-align:center; padding:4pt; width:13%;">
+      <div class="flow-box" style="width:100%; font-size:9.5pt;">
+        <strong>ETL</strong><br>extract · clean<br>split into sections
+      </div>
+    </td>
+    <td style="border:none; text-align:center; width:4%; font-size:16pt; color:#2C5F9E;">→</td>
+    <td colspan="3" style="border:none; text-align:center; padding:4pt; width:30%;">
+      <!-- Two parallel boxes stacked -->
+      <div class="flow-box" style="width:90%; font-size:9.5pt; background:#D1F2EB; border-color:#117A65; display:block; margin-bottom:6pt;">
+        <strong>Knowledge Base</strong><br>top-20 similar past sections → reranker → best 5
+      </div>
+      <div class="flow-box" style="width:90%; font-size:9.5pt; background:#FFF3CD; border-color:#C8900A; display:block;">
+        <strong>Calculation Engine</strong><br>materiality · bank rec · thresholds · ratios (see Section 7)
+      </div>
+      <div style="font-size:9pt; color:#888; margin-top:4pt;">← these two run at the same time</div>
+    </td>
+    <td style="border:none; text-align:center; width:4%; font-size:16pt; color:#2C5F9E;">→</td>
+    <td style="border:none; text-align:center; padding:4pt; width:13%;">
+      <div class="flow-box highlight" style="width:100%; font-size:9.5pt;">
+        <strong>AI Model</strong><br>5 past examples<br>+ 3 past findings<br>+ computed facts<br>→ draft
+      </div>
+    </td>
+    <td style="border:none; text-align:center; width:4%; font-size:16pt; color:#2C5F9E;">→</td>
+    <td style="border:none; text-align:center; padding:4pt; width:13%;">
+      <div class="flow-box gold" style="width:100%; font-size:9.5pt;">
+        <strong>Validator</strong><br>citations ✓<br>thresholds ✓<br>opinion scan ✓
+      </div>
+    </td>
+    <td style="border:none; text-align:center; width:4%; font-size:16pt; color:#2C5F9E;">→</td>
+    <td style="border:none; text-align:center; padding:4pt; width:13%;">
+      <div class="flow-box" style="width:100%; font-size:9.5pt; background:#FADBD8; border-color:#C0392B;">
+        <strong>AI Draft</strong><br>shown to auditor<br>with evidence used
+      </div>
+    </td>
+  </tr>
+</table>
+
+<div class="box-teal" style="margin-top:14pt;">
+  <strong>What "evidence used" means to the auditor:</strong> When you receive an AI-assisted draft, the system also shows you which past workpaper sections it referenced to generate the output. You can click on any reference to see the original anonymized text. This transparency lets you judge whether the examples it drew from are genuinely comparable to your current situation — and if not, you can reject the output and trigger a new one.
+</div>
+
+
+<!-- SECTION 7 — CALCULATION ENGINE -->
+<h1>7. The Audit Calculation Engine — Why the AI Never Does the Arithmetic</h1>
+
+<div class="box-blue">
+  <strong>The short version:</strong> Before the AI model sees any workpaper, a separate Python calculation engine runs first and computes all the numbers — reconciliation totals, materiality figures, threshold comparisons, variances. The AI then reads those pre-verified facts and writes the analysis. It never adds up columns or checks whether a number exceeds a threshold itself.
+</div>
+
+<p>This is a deliberate design choice, not a limitation. AI language models are excellent at reading, interpreting, and writing — but they can make small arithmetic errors that would be unacceptable in an audit context. A reconciliation difference of $4,668 reported as $4,670 is an audit error. So all arithmetic is done by deterministic Python code — the same way a spreadsheet formula works — and the results are handed to the model as verified facts.</p>
+
+<div class="box-yellow">
+  <strong>Analogy:</strong> Think of it like a senior auditor handing their staff a completed trial balance reconciliation worksheet and saying: "Here are the verified figures — now document the analysis and write the finding." The staff member does not re-add all the columns; they interpret the numbers and write the conclusion. That is exactly how Audit AI works: the Calculation Engine is the verified worksheet; the AI model is the staff member writing the analysis.
+</div>
+
+<h2>7.1 What the Calculation Engine Computes</h2>
+
+<p>The engine has six tools, each covering one type of audit computation. The system automatically selects which tools to run based on the <code>workpaper_type</code> label you assigned in <code>engagement_labels.csv</code>:</p>
+
+<table>
+  <tr><th>Tool</th><th>Workpaper types that trigger it</th><th>What it computes</th></tr>
+  <tr>
+    <td><strong>Threshold Checker</strong></td>
+    <td>All types</td>
+    <td>Compares expenditure totals against regulatory thresholds (e.g. $750,000 Single Audit threshold under 2 CFR 200; Yellow Book and GAAS materiality benchmarks). Returns: threshold name, limit, your value, and whether it is breached — as a verified fact.</td>
+  </tr>
+  <tr>
+    <td><strong>Materiality Calculator</strong></td>
+    <td>All types</td>
+    <td>Computes planning materiality, performance materiality, and clearly trivial threshold using the engagement's total assets, total revenue, or total federal expenditures — depending on engagement type and framework. Returns all three tiers as verified figures.</td>
+  </tr>
+  <tr>
+    <td><strong>Bank Reconciliation</strong></td>
+    <td>bank_reconciliation</td>
+    <td>Reads the structured rows of a bank reconciliation workpaper and computes: outstanding checks total, deposits in transit total, adjusted bank balance, comparison to book balance, and unreconciled difference. Flags if difference exceeds tolerance.</td>
+  </tr>
+  <tr>
+    <td><strong>Trial Balance Checker</strong></td>
+    <td>trial_balance</td>
+    <td>Reads debit and credit columns row by row, sums each, verifies they are equal, computes any out-of-balance amount, and checks that subtotal rows match their source rows (catches spreadsheet formula errors that may not be obvious on screen).</td>
+  </tr>
+  <tr>
+    <td><strong>Financial Ratios</strong></td>
+    <td>financial_statements, analytical_procedure</td>
+    <td>Computes current ratio, quick ratio, debt-to-equity ratio, and days sales outstanding from the balance sheet and income statement rows. These ratios are then available to the model as verified facts for the analytical narrative.</td>
+  </tr>
+  <tr>
+    <td><strong>Variance Analysis</strong></td>
+    <td>analytical_procedure, trial_balance, financial_statements</td>
+    <td>Computes absolute and percentage variance for each line item between current and prior period. Automatically flags any item where variance exceeds 10% or performance materiality — so the model can focus its narrative on the right items without guessing at significance.</td>
+  </tr>
+</table>
+
+<h2>7.2 All Three Frameworks Are Covered</h2>
+
+<p>The Calculation Engine applies to all three audit frameworks Audit AI supports:</p>
+
+<table>
+  <tr><th>Framework</th><th>Key threshold / calculation covered</th></tr>
+  <tr><td><strong>Single Audit (2 CFR 200)</strong></td><td>$750,000 federal expenditure threshold, Type A program determination (3% of total federal awards), questioned cost materiality</td></tr>
+  <tr><td><strong>GAGAS (Yellow Book)</strong></td><td>Materiality benchmarks for governmental entities, performance audit thresholds</td></tr>
+  <tr><td><strong>GAAS (AU-C)</strong></td><td>Private-sector materiality (5% of pretax income or 0.5%–1% of total assets), going concern ratios</td></tr>
+</table>
+
+<h2>7.3 What the AI Actually Sees</h2>
+
+<p>Before generating any output, the AI model receives a section that looks like this — the pre-verified numbers, labeled clearly:</p>
+
+<div class="code">COMPUTED AUDIT FACTS (Python-verified — do not recalculate)
+
+Materiality (Single Audit — 2026):
+  Planning materiality:     $47,250   (0.5% of total federal expenditures: $9,450,000)
+  Performance materiality:  $23,625   (50% of planning)
+  Clearly trivial:          $2,363    (5% of planning)
+
+Bank Reconciliation:
+  Balance per bank statement:      $1,847,234.00
+  Less: Outstanding checks:          ($14,822.50)
+  Add:  Deposits in transit:          $19,444.00
+  Adjusted bank balance:           $1,851,855.50
+  Balance per books:               $1,851,902.00
+  Unreconciled difference:               $46.50  ← WITHIN tolerance ($500) ✓
+
+Threshold Check (2 CFR 200):
+  Total federal expenditures:  $9,450,000 → EXCEEDS Single Audit threshold ($750,000)
+  Type A threshold (3%):          $283,500
+  Single Audit required:         YES</div>
+
+<p>The model reads these verified figures and writes: <em>"The bank reconciliation indicates an unreconciled difference of $46.50, which is within the firm's $500 tolerance threshold. No finding is required. Total federal expenditures of $9,450,000 exceed the Single Audit threshold..."</em></p>
+
+<p>It did not compute those numbers. The Python engine did. The model explained them.</p>
+
+<h2>7.4 What This Means for the Audit Team — Numeric Workpapers</h2>
+
+<p>For the Calculation Engine to work correctly on workpaper content (bank reconciliations, trial balances, financial statements), the ETL pipeline needs to extract the <strong>structured row data</strong> — not just the text — from those Excel sheets. This happens automatically when you label a workpaper correctly:</p>
+
+<div class="box-green">
+  <strong>If you label a workpaper as</strong> <code>bank_reconciliation</code>, <code>trial_balance</code>, <code>financial_statements</code>, or <code>analytical_procedure</code> in <code>engagement_labels.csv</code>, the system automatically extracts the numeric row structure from that workpaper and makes it available to the Calculation Engine. <strong>No additional action is required.</strong> The label is the trigger.
+</div>
+
+<p>If an Excel workpaper cannot be read in structured form (e.g. it is a scanned PDF or the formatting is unusual), the system logs a warning and falls back to text-only processing — the AI still generates output, but without pre-verified computed figures. The output will carry a note to the auditor that the calculation engine did not run for this section.</p>
+
+<h2>7.5 Audit Team Action for the Calculation Engine</h2>
+
+<ul class="checklist">
+  <li>Label bank reconciliation, trial balance, financial statement, and analytical procedure workpapers with the correct <code>workpaper_type</code> in <code>engagement_labels.csv</code> — this is the only step required from your side</li>
+  <li>Ensure these workpapers are exported as Excel (.xlsx) from Caseware — scanned PDFs cannot be structured for calculation input</li>
+  <li>No special formatting is required beyond what is already standard HCLLP practice — the system reads the rows as they are</li>
+</ul>
+
+
+<!-- SECTION 8 -->
+<h1>8. Your Role at Each Stage — Complete Summary</h1>
+
+<table>
+  <tr>
+    <th>Stage</th>
+    <th>What happens (technical)</th>
+    <th>What you need to do</th>
+    <th>Who does it</th>
+    <th>When</th>
+  </tr>
+  <tr>
+    <td><strong>Stage 1<br>Mass Training</strong></td>
+    <td>All labeled workpapers across all frameworks converted to training pairs; model trains on all of them with time-sensitivity weighting</td>
+    <td>Export all finalized engagements from Caseware + complete engagement_labels.csv for every folder (workpaper_type, audit_phase, time_sensitivity)</td>
+    <td>Engagement managers + seniors (labels reviewed by seniors or managers)</td>
+    <td>Weeks 1–4 of project</td>
+  </tr>
+  <tr>
+    <td><strong>Stage 2<br>Framework Training</strong></td>
+    <td>Same training pairs filtered by framework; four separate focused training sessions run from Stage 1 checkpoint</td>
+    <td>Confirm coverage per framework is complete; supplement any under-represented framework. Participate in blind review of 250 outputs when project team requests.</td>
+    <td>Engagement managers (coverage check); senior auditors and partners (blind review)</td>
+    <td>Month 1–2; blind review in Month 2</td>
+  </tr>
+  <tr>
+    <td><strong>Stage 3<br>Refinement</strong></td>
+    <td>Gold-standard pairs re-trained to fix specific weaknesses found in Stage 2 review</td>
+    <td>Ensure gold-standard nominations were submitted in Stage 1. Participate in targeted review of 50 outputs covering identified weakness areas.</td>
+    <td>Partners (nominations); seniors (targeted review)</td>
+    <td>Month 2–3</td>
+  </tr>
+  <tr>
+    <td><strong>RAG Knowledge Base</strong></td>
+    <td>Every workpaper embedded as searchable vector; used at inference time to pull relevant past examples into every AI query</td>
+    <td>No additional action. Built automatically from Stage 1 intake. Gold-standard workpapers additionally indexed in the validated findings collection.</td>
+    <td>Automated</td>
+    <td>Runs in parallel with Stage 1</td>
+  </tr>
+  <tr>
+    <td><strong>Calculation Engine</strong></td>
+    <td>At inference time: threshold checks, materiality, bank rec, trial balance, ratios, and variance computed in Python before the AI generates any output. Triggered automatically by workpaper_type label.</td>
+    <td>Label bank_reconciliation, trial_balance, financial_statements, and analytical_procedure workpapers correctly in engagement_labels.csv. Export these as Excel (not scanned PDF).</td>
+    <td>Audit staff (labels); automated (computation)</td>
+    <td>Runs at every inference request — no separate action needed</td>
+  </tr>
+  <tr>
+    <td><strong>Pilot &amp; DPO Cycles</strong></td>
+    <td>Live system in use; auditor corrections collected and used quarterly to improve the model</td>
+    <td>Use the system, approve or correct outputs. Corrections from seniors and partners automatically improve the next quarterly training cycle.</td>
+    <td>All audit staff (use); seniors and partners (corrections feed the improvement cycle)</td>
+    <td>Month 3 onward</td>
+  </tr>
+</table>
+
+
+<!-- SECTION 9 -->
+<h1>9. Frequently Asked Questions</h1>
+
+<table>
+  <tr><th>Question</th><th>Answer</th></tr>
+  <tr>
+    <td>If Stage 2 uses the same data as Stage 1, why do we train again?</td>
+    <td>Stage 1 teaches the model about all frameworks at once — like a general education. Stage 2 is like a specialization. The model already knows the shared vocabulary; now it fine-tunes its understanding of how each specific framework's citations, thresholds, and judgment patterns differ. Training in isolation per framework (building on Stage 1) produces sharper results than mixing all frameworks in one pass would.</td>
+  </tr>
+  <tr>
+    <td>What happens if we label a workpaper as timeless when it should be time_sensitive?</td>
+    <td>The workpaper gets more weight than it should. If it contains outdated thresholds, those thresholds could influence the model slightly more than intended. The citation verifier in the output pipeline will catch any outdated regulation codes — but incorrect labels reduce training efficiency. When in doubt, label conservatively: time_static is a safe middle ground.</td>
+  </tr>
+  <tr>
+    <td>Can the AI see actual client data when generating outputs?</td>
+    <td>No. All client-identifying information — names, EINs, SSNs, PAN numbers, bank accounts — is automatically removed from every workpaper before it enters the training data or the knowledge base. What the AI sees are anonymized versions: [CLIENT_ENTITY], [EIN], [PAN], etc. The structure and methodology of the workpaper is preserved; the client identity is not.</td>
+  </tr>
+  <tr>
+    <td>When the AI pulls "past examples" during inference, is it pulling from our actual client workpapers?</td>
+    <td>Yes — but only the anonymized, PII-scrubbed versions. The retrieved sections show audit procedures, findings, and conclusions with all client identifiers replaced. You will see the methodology and language of past work, not the client name or specific account details.</td>
+  </tr>
+  <tr>
+    <td>What if the AI retrieves a past example that is not actually relevant to my workpaper?</td>
+    <td>You will be able to see which past sections it retrieved. If any are clearly not relevant, you can note this in your correction and the system will log it. Over time, the reranker improves at selecting genuinely relevant examples, partly because these corrections feed back into the DPO improvement cycles.</td>
+  </tr>
+  <tr>
+    <td>Does the AI learn from every correction a senior auditor makes?</td>
+    <td>Corrections from senior auditors and partners are collected in the system. Every quarter, when enough corrections have accumulated (target: 300+ in the first cycle), the model is re-trained using those corrections as preference examples — teaching it what better outputs look like compared to what it originally produced. Junior auditor corrections are collected but reviewed before being used in training.</td>
+  </tr>
+  <tr>
+    <td>How do we know the AI is not making up regulation citations?</td>
+    <td>Every regulation code the model generates is automatically checked against a master list of currently valid regulations (2 CFR 200 series, AU-C series, SA series). Any code that does not appear on the list is flagged with a warning badge on the output. The auditor sees exactly which citations are verified and which are not — and the output cannot be promoted from "AI Draft" to "Validated" if it contains unverified citations.</td>
+  </tr>
+  <tr>
+    <td>Can the AI make arithmetic mistakes — wrong materiality amounts, incorrect reconciliation totals?</td>
+    <td>No — because the AI never does the arithmetic. All calculations (materiality, bank reconciliation, trial balance totals, ratios, variances, threshold comparisons) are done by the Python Calculation Engine before the AI model receives any input. The AI sees verified, pre-computed numbers and writes the analysis based on those facts. This is the same principle as a spreadsheet formula: the formula computes; the auditor interprets. The AI interprets; it does not compute.</td>
+  </tr>
+  <tr>
+    <td>Does the Calculation Engine run for all workpaper types or only some?</td>
+    <td>Threshold checks and materiality run for every workpaper regardless of type — every query benefits from knowing what the applicable thresholds and materiality figures are. The workpaper-specific tools (bank reconciliation, trial balance, ratios, variance analysis) run only when the <code>workpaper_type</code> label in your <code>engagement_labels.csv</code> matches — that label is what tells the system which calculations are relevant for each workpaper. Qualitative workpapers like internal_control narratives and planning documents receive threshold and materiality facts but no numeric row computation.</td>
+  </tr>
+</table>
+
+
+<div class="footer-note">
+  Audit AI &nbsp;&bull;&nbsp; Harshwal &amp; Company LLP &nbsp;&bull;&nbsp; Internal Confidential &nbsp;&bull;&nbsp; Version 1.1 — April 2026<br>
+  This document is for internal distribution only. Do not share outside the firm.
+</div>
+
+</body>
+</html>

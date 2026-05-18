@@ -1,0 +1,210 @@
+# config/routing.yaml
+# ====================
+# Spec-driven file routing table for AuditAI.
+#
+# Structure
+# ---------
+# Two top-level tables: `phase1` and `phase2`.
+# The shared router engine (auditai_data_normalization/router.py) reads this
+# file and uses the correct table based on the `phase` argument passed to
+# router.route(file_path, phase).
+#
+# Per-entry fields
+# ----------------
+# extensions    : list of lowercase file extensions including the dot
+# magic_bytes   : hex string of the first 4 bytes of the file (optional)
+#                 Used to confirm type regardless of extension.
+#                 Omit for formats with no reliable magic bytes (csv, json).
+# extractor     : full Python module path to the extract() function
+#                 Must be callable as: importlib.import_module(module).extract(path)
+# skip          : if true, file is silently ignored — no extraction attempted
+# notes         : human-readable explanation (optional, for auditors)
+#
+# PDF special case
+# ----------------
+# PDFs are declared as two entries: pdf_text and pdf_scanned.
+# The router engine opens the file and checks average chars/page to decide
+# which entry applies. This logic lives in router.py, not here.
+# Both entries share the same magic_bytes and extensions — the router
+# handles the sub-routing after initial detection.
+#
+# Magic bytes reference
+# ----------------------
+# 50 4B 03 04  →  ZIP-based (xlsx, xlsm, docx, docm)
+# D0 CF 11 E0  →  OLE2 compound (legacy .xls, .doc, encrypted Office)
+# 25 50 44 46  →  PDF (%PDF)
+#
+# How to add a new file type
+# --------------------------
+# 1. Add an entry to both phase1 and phase2 tables (or skip: true if not needed)
+# 2. Write the extractor module and implement extract(file_path) -> DocumentRecord (phase1)
+#    or extract(file_path) -> dict with keys {text, tables, metadata} (phase2)
+# 3. No changes to router.py needed unless the detection logic itself changes.
+
+
+# ===========================================================================
+# Phase 1 — auditai_data_normalization
+# Output contract: DocumentRecord (normalized, PII-scrubbed, confidence-scored)
+# ===========================================================================
+
+phase1:
+
+  docx:
+    extensions: [".docx", ".docm"]
+    magic_bytes: "504B0304"
+    extractor: "auditai_data_normalization.extractors.docx_extractor.extract"
+    skip: false
+    notes: "Word documents — python-docx. Includes PPC engagement forms, management letters."
+
+  pdf_text:
+    extensions: [".pdf"]
+    magic_bytes: "25504446"
+    extractor: "auditai_data_normalization.extractors.pdf_text_extractor.extract"
+    skip: false
+    notes: >
+      Text-native (digital) PDFs. Confirmed by avg chars/page >= 100.
+      Router sub-routes here after PDF magic byte detection.
+
+  pdf_scanned:
+    extensions: [".pdf"]
+    magic_bytes: "25504446"
+    extractor: "auditai_data_normalization.extractors.ocr_extractor.extract"
+    skip: false
+    notes: >
+      Scanned / image-only PDFs. Confirmed by avg chars/page < 100.
+      Uses Docling+Surya (GPU) with Tesseract fallback.
+
+  xlsx:
+    extensions: [".xlsx", ".xlsm"]
+    magic_bytes: "504B0304"
+    extractor: "auditai_data_normalization.extractors.xlsx_extractor.extract"
+    skip: false
+    notes: "Excel workpapers — openpyxl. Trial balances, bank recs, financial statements."
+
+  xls:
+    extensions: [".xls"]
+    magic_bytes: "D0CF11E0"
+    extractor: "auditai_data_normalization.extractors.xlsx_extractor.extract"
+    skip: false
+    notes: "Legacy Excel — xlrd engine. Same extractor handles both .xlsx and .xls."
+
+  csv:
+    extensions: [".csv", ".tsv"]
+    magic_bytes: null
+    extractor: "auditai_data_normalization.extractors.csv_extractor.extract"
+    skip: false
+    notes: "Delimited text files — pandas. Tab-separated uses tsv extension."
+
+  json:
+    extensions: [".json", ".jsonl"]
+    magic_bytes: null
+    extractor: "auditai_data_normalization.extractors.json_extractor.extract"
+    skip: false
+    notes: "Structured JSON data files — stdlib json."
+
+  doc_legacy:
+    extensions: [".doc"]
+    magic_bytes: "D0CF11E0"
+    extractor: null
+    skip: true
+    notes: >
+      Legacy binary .doc format. Not supported — must be converted to .docx first.
+      Command: libreoffice --headless --convert-to docx <file>
+
+  dbf:
+    extensions: [".dbf"]
+    magic_bytes: null
+    extractor: null
+    skip: true
+    notes: >
+      dBASE / FoxPro files. Not yet supported.
+      Planned: dbfread extractor in a future phase.
+
+  # Index / structure files — never contain audit data
+  skip_index_files:
+    extensions: [".cdx", ".cvw", ".sty", ".mdx", ".ntx", ".lnk", ".idx"]
+    magic_bytes: null
+    extractor: null
+    skip: true
+    notes: "CaseWare index and structure files. No audit data — always skipped."
+
+
+# ===========================================================================
+# Phase 2 — raw_to_training_pair
+# Output contract: raw text / structured rows for training pair generation.
+# No normalization, no PII scrubbing, no confidence scoring.
+# ===========================================================================
+
+phase2:
+
+  docx:
+    extensions: [".docx", ".docm"]
+    magic_bytes: "504B0304"
+    extractor: "raw_to_training_pair.extraction.docx_extractor.extract"
+    skip: false
+    notes: "Raw text extraction from Word docs for pair builder input."
+
+  pdf_text:
+    extensions: [".pdf"]
+    magic_bytes: "25504446"
+    extractor: "raw_to_training_pair.extraction.pdf_extractor.extract"
+    skip: false
+    notes: "Raw text from text-native PDFs via pdfplumber."
+
+  pdf_scanned:
+    extensions: [".pdf"]
+    magic_bytes: "25504446"
+    extractor: "raw_to_training_pair.extraction.pdf_extractor.extract"
+    skip: false
+    notes: >
+      Scanned PDFs — same Phase 2 extractor handles both text and scanned.
+      OCR tier selection handled inside the extractor.
+
+  xlsx:
+    extensions: [".xlsx", ".xlsm"]
+    magic_bytes: "504B0304"
+    extractor: "raw_to_training_pair.extraction.xlsx_extractor.extract"
+    skip: false
+    notes: "Raw rows from Excel workpapers via openpyxl."
+
+  xls:
+    extensions: [".xls"]
+    magic_bytes: "D0CF11E0"
+    extractor: "raw_to_training_pair.extraction.xlsx_extractor.extract"
+    skip: false
+    notes: "Legacy Excel via xlrd. Same Phase 2 extractor as xlsx."
+
+  csv:
+    extensions: [".csv", ".tsv"]
+    magic_bytes: null
+    extractor: "raw_to_training_pair.extraction.csv_extractor.extract"
+    skip: false
+    notes: "Raw rows from CSV/TSV files via pandas."
+
+  json:
+    extensions: [".json", ".jsonl"]
+    magic_bytes: null
+    extractor: "raw_to_training_pair.extraction.json_extractor.extract"
+    skip: false
+    notes: "Raw key-value extraction from JSON files."
+
+  doc_legacy:
+    extensions: [".doc"]
+    magic_bytes: "D0CF11E0"
+    extractor: null
+    skip: true
+    notes: "Legacy .doc — not supported. Convert to .docx first."
+
+  dbf:
+    extensions: [".dbf"]
+    magic_bytes: null
+    extractor: null
+    skip: true
+    notes: "dBASE / FoxPro — not yet supported."
+
+  skip_index_files:
+    extensions: [".cdx", ".cvw", ".sty", ".mdx", ".ntx", ".lnk", ".idx"]
+    magic_bytes: null
+    extractor: null
+    skip: true
+    notes: "CaseWare index and structure files — always skipped."

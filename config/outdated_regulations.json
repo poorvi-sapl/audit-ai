@@ -1,0 +1,38 @@
+{
+  "OMB_Circular_A-133": {
+    "superseded_by": "2 CFR 200",
+    "effective_date": "2015-12-26",
+    "replacement_id": "2 CFR 200",
+    "notes": "Single Audit threshold raised from $500K to $750K. Pairs citing A-133 thresholds are time_sensitive."
+  },
+  "OMB_Circular_A-87": {
+    "superseded_by": "2 CFR 200 Subpart E",
+    "effective_date": "2014-12-26",
+    "replacement_id": "2 CFR 200",
+    "notes": "Cost principles for state, local, and tribal governments."
+  },
+  "OMB_Circular_A-102": {
+    "superseded_by": "2 CFR 200 Subpart D",
+    "effective_date": "2014-12-26",
+    "replacement_id": "2 CFR 200",
+    "notes": "Grants and cooperative agreements with state and local governments."
+  },
+  "OMB_Circular_A-110": {
+    "superseded_by": "2 CFR 200 Subpart D",
+    "effective_date": "2014-12-26",
+    "replacement_id": "2 CFR 200",
+    "notes": "Uniform administrative requirements for nonprofits."
+  },
+  "GAGAS_2011": {
+    "superseded_by": "GAGAS_2018",
+    "effective_date": "2019-07-01",
+    "replacement_id": "GAGAS_2018",
+    "notes": "Yellow Book 2018 revision. Significant changes to independence and peer review."
+  },
+  "GAGAS_2018": {
+    "superseded_by": "GAGAS_2024",
+    "effective_date": "2025-01-01",
+    "replacement_id": "GAGAS_2024",
+    "notes": "Yellow Book 2024 revision. Effective for periods ending on or after 2025-06-30."
+  }
+}

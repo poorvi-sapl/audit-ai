@@ -1,0 +1,534 @@
+# config/sop_field_classes.yaml
+# ================================
+# SOP-QM-001 (NPO-CX-1.1) field classification.
+#
+# Versioning
+# ----------
+# Bump version on every SOP onboarding or class change.
+# Snapshots are written to config/sop_field_classes_snapshots/ by
+# reload_sop_field_classes() when version changes. Each snapshot records
+# the full field list so diffs are reproducible.
+#
+# Purpose
+# -------
+# Single source of truth for whether a given SOP question/section can
+# produce a legitimate audit finding. All downstream components
+# (findings_extractor, completion_drafter, deficiency_sampler, claim_mapper)
+# load this file to determine deficiency and citation eligibility.
+
+version: "1.0"
+effective_date: "2026-05-15"
+sop_document: "SOP-QM-001 NPO-CX-1.1"
+
+#
+# Key slug convention
+# -------------------
+# Q-number slugs are lowercase with no parentheses:
+#   Q1(a)          → q1a
+#   Q9(b)          → q9b
+#   Part II Q2(j)  → part_ii_q2j
+#
+# Classes
+# -------
+#   deficiency_eligible  — field can be legitimately missing / incomplete /
+#                          contradictory. Findings allowed. Deficiency
+#                          sampling allowed.
+#   fixed_administrative — always pre-filled or always NO by SOP design.
+#                          Findings forbidden. Citations allowed (reference
+#                          context only).
+#   informational_only   — present for documentation completeness only.
+#                          Findings forbidden. Citations allowed.
+#
+# Required keys per entry
+# -----------------------
+#   class               : deficiency_eligible | fixed_administrative | informational_only
+#   deficiency_allowed  : true | false  — whether a finding may be generated
+#   citation_allowed    : true | false  — whether SOP §ref may appear in completion
+#   canonical_field     : canonical field name from field_tiers.yaml, or null
+#   label               : human-readable question label for UI / logging
+#
+# Extension keys (leave null until implemented)
+# ---------------------------------------------
+#   severity_default    : override default severity for this field's findings
+#   client_type_overrides: per-client-type class overrides (e.g. includes_gagas
+#                          is fixed_administrative for For-Profit but
+#                          deficiency_eligible for Government/Tribal)
+#   retrieval_weight    : float — boost/suppress this section during SOP retrieval
+#   sampling_weight     : float — override deficiency_sampler tier weight for this field
+#
+# Last reviewed: 2026-05-15
+# Based on: SOP_NPO_CX_1_1_Final_v10 — audit team analysis
+# TODO: verify q1f, q1g canonical_field mappings against SOP docx
+
+fields:
+
+  # ── Part I — Q1: Services selected ─────────────────────────────────────────
+  # These are the checkbox questions that drive which standards apply.
+  # Any unchecked/missing service selection is a real documentation gap.
+
+  q1a:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: includes_gaas_audit
+    label: "Q1(a) — Financial Statement Audit (GAAS)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q1b:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: includes_gagas
+    label: "Q1(b) — Government Auditing Standards (GAGAS / Yellow Book)"
+    severity_default: null
+    client_type_overrides:
+      For-Profit: fixed_administrative   # always NO for for-profit
+    retrieval_weight: null
+    sampling_weight: null
+
+  q1c:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: includes_single_audit
+    label: "Q1(c) — Single Audit (2 CFR 200 / Uniform Guidance)"
+    severity_default: null
+    client_type_overrides:
+      For-Profit: fixed_administrative   # always NO for for-profit
+    retrieval_weight: null
+    sampling_weight: null
+
+  q1d:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: includes_grant_compliance
+    label: "Q1(d) — Grant Compliance Audit"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q1e:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: includes_nonattest_services
+    label: "Q1(e) — Non-Attest Services"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q1f:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: null             # tax prep scope — no 1:1 in field_tiers.yaml; revisit when tax-return workpapers onboarded
+    label: "Q1(f) — Tax Return Preparation (Form 990 / 990-PF / 199 / RRF-1)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q1g:
+    class: fixed_administrative       # Always YES, pre-filled — staff cannot deviate
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q1(g) — Non-Attest Services (always pre-filled YES)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  # ── Part I — Q2: Acceptance Decision ───────────────────────────────────────
+  # The core output of the engagement acceptance form.
+
+  q2:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: engagement_decision
+    label: "Q2 — Engagement Decision (Accept / Continue / Decline)"
+    severity_default: High
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  # ── Part I — Q3: Reporting Framework ───────────────────────────────────────
+
+  q3:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: reporting_framework
+    label: "Q3 — Reporting Framework (GAAP / GASB / special purpose)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  # ── Part I — Q4–Q16: Fixed administrative questions ────────────────────────
+  # These are always pre-filled or always NO by SOP design.
+  # They are structurally invariant — a "missing" answer here is never a
+  # legitimate audit finding. The model must not generate findings for these.
+
+  q4:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q4 — [always pre-filled — verify label from SOP]"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q5a:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q5(a)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q5b:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q5(b)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q5c:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q5(c)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q6:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q6"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q6a:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q6(a)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q6b:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q6(b)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q7:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q7"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q8:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q8"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q9:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q9"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q9a:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q9(a)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q9b:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q9(b)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q10:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q10"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q11:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q11"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q12:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q12"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q13:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q13"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q14:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q14"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q15:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q15"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  q16:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Q16"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  # ── Part II — Independence / Compliance questions ───────────────────────────
+  # Q1 through Q2(i) and Q3–Q4 are fixed/always-NO by SOP design.
+  # Q2(j) is the one genuinely variable independence question.
+
+  part_ii_q1:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q1"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2a:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(a)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2b:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(b)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2c:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(c)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2d:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(d)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2e:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(e)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2f:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(f)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2g:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(g)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2h:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(h)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2i:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q2(i)"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q2j:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: true
+    canonical_field: null             # TODO: verify canonical mapping
+    label: "Part II Q2(j) — [genuinely variable independence question]"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q3:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q3"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  part_ii_q4:
+    class: fixed_administrative
+    deficiency_allowed: false
+    citation_allowed: true
+    canonical_field: null
+    label: "Part II Q4"
+    severity_default: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null

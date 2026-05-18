@@ -1,0 +1,100 @@
+# ============================================================
+# AuditAI Stack Configuration
+# WARNING: embedding.dimensions is IMMUTABLE after the first
+# Qdrant collection is created. Changing it requires deleting
+# and re-creating the collection + full re-embed of all chunks.
+# ============================================================
+
+embedding:
+  model: intfloat/e5-mistral-7b-instruct
+  dimensions: 4096
+  distance: Cosine
+  device: cuda                  # L40S GPU on-prem; change to cpu for local dev
+  embed_batch_size: 32          # chunks per embed call (etl_pipeline DAG)
+  qdrant_upsert_batch: 100      # points per Qdrant upsert call
+
+qdrant:
+  collection_workpapers: auditai_workpaper_chunks
+  collection_sop: auditai_sop
+  payload_indexes:
+    - field: workpaper_type
+      type: keyword
+    - field: year
+      type: integer
+    - field: is_rollforward
+      type: bool
+
+ocr:
+  primary: docling+surya
+  fallback: tesseract
+  tesseract_lang: eng
+  surya_confidence_threshold: 0.60   # below this → route to Tesseract
+  tesseract_confidence_threshold: 40 # below this → flag as error_page
+  dpi: 300                           # pdf2image render DPI
+  page_window_size: 25               # max pages per OCR window
+  ocr_timeout_seconds: 600           # per-window timeout (Docling+Surya)
+  tesseract_timeout_seconds: 120     # per-window timeout (Tesseract fallback)
+
+extraction_llm:
+  provider: ollama
+  model: gemma3:12b
+  temperature: 0.0
+  format: json                  # JSON-only prompts — no free-text completions
+
+training_target:
+  base_model: mistralai/Mistral-Nemo-Instruct-2407
+  quantization: nf4
+  instruction_format: mistral   # <s>[INST]...[/INST]...</s>
+  lora_rank: 16
+  lora_alpha: 32
+  max_seq_length: 32768
+
+chunker:
+  max_tokens: 2000
+  overlap_tokens: 200
+  tokenizer: mistral            # mistral_common.tokenize
+  pdf_page_split_threshold: 100 # pages — split into 25-page windows above this
+  ocr_page_split_threshold: 50
+
+# Workpaper types that use the numeric chunker instead of semantic
+numeric_workpaper_types:
+  - bank_reconciliation
+  - trial_balance
+  - financial_statements
+  - analytical_procedure
+
+sop_chunker:
+  chunk_size_tokens: 400
+  chunk_overlap_tokens: 50
+  tokenizer: tiktoken           # tiktoken used for SOP chunking (per benchmark deck)
+  prepend_section_prefix: true  # "SOP §X.X — [Section]: " prepended to every chunk
+
+dedup:
+  minhash_threshold: 0.85       # above this → rollforward or within-engagement dup
+  exact_hash_algorithm: sha256
+  redis_lock_ttl_seconds: 300
+
+drift_weights:
+  "2024-2026": 1.00
+  "2022-2023": 0.85
+  "2020-2021": 0.70
+  "2018-2019": 0.50
+  "2015-2017": 0.30
+  default: 0.10                 # before 2015
+
+task_balance:
+  max_fraction_per_task: 0.40   # no single pair_type may exceed 40% of total
+
+training_hyperparams:
+  mass:
+    lr: 2.0e-4
+    epochs: 3
+    batch_size: 4
+  batch:
+    lr: 1.0e-4
+    epochs: 2
+    batch_size: 4
+  refine:
+    lr: 5.0e-5
+    epochs: 1
+    batch_size: 4

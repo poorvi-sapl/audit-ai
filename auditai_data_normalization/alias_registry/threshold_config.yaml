@@ -1,0 +1,385 @@
+# alias_registry/threshold_config.yaml
+# =======================================
+# Single source of truth for every numeric threshold in the alias system.
+#
+# Purpose
+# -------
+# All thresholds that influence alias mapping behavior live here.
+# No threshold is hardcoded in Python. Changing a threshold requires
+# a validated merge via alias_merger.py, which creates a version snapshot
+# and changelog entry — making every threshold change traceable.
+#
+# How it is loaded
+# ----------------
+# alias_fuzzy.py, alias_suggester.py, and alias_merger.py all load this
+# file at startup via load_threshold_config(). Never import values directly.
+#
+# Versioning
+# ----------
+# This file is included in every alias system snapshot under
+# config/alias_registry/snapshots/vX.Y/threshold_config.yaml
+# Changes appear in the behavioral delta of the changelog entry.
+#
+# Last reviewed:  2026-05-14
+# Current version: 1.0
+
+
+# ------------------------------------------------------------------
+# 1. Fuzzy matching thresholds
+#    Controls routing of unknown labels after normalization +
+#    deterministic lookup both fail.
+# ------------------------------------------------------------------
+fuzzy:
+
+  # Score at or above this → auto-approve bucket (high_confidence_queue)
+  # Human still confirms in Streamlit but it is one-click.
+  auto_approve: 0.90
+
+  # Score between quick_confirm_floor and auto_approve → quick-confirm bucket
+  # Reviewer sees matched string + score side by side.
+  quick_confirm_floor: 0.75
+
+  # Score below quick_confirm_floor → label goes to LLM suggestion pipeline.
+  # Nothing auto-routes to manual bucket from fuzzy alone — LLM handles it.
+
+  # Minimum token length of a label to attempt fuzzy matching.
+  # Shorter labels are too ambiguous for reliable fuzzy scoring.
+  min_label_length: 3
+
+  # Maximum number of candidate canonical fields returned per label.
+  # Only the top-N are evaluated; others are discarded silently.
+  top_n_candidates: 3
+
+
+# ------------------------------------------------------------------
+# 2. LLM suggestion thresholds
+#    Controls routing of labels that survived fuzzy with no match.
+# ------------------------------------------------------------------
+llm:
+
+  # LLM "high" confidence → auto-approve bucket
+  # LLM "medium" confidence → quick-confirm bucket
+  # LLM "low" / "none" → manual_review bucket
+  # These map the LLM's qualitative labels to routing buckets.
+  # Do not change the string values — they match Gemma's output format.
+  auto_approve_confidence: "high"
+  quick_confirm_confidence: "medium"
+  manual_review_confidence: "low"
+
+  # Gemma temperature for alias suggestion calls.
+  # 0.0 = deterministic. Do not raise above 0.1 for alias mapping.
+  temperature: 0.0
+
+  # Max tokens for a single alias suggestion response.
+  max_tokens: 256
+
+  # Max labels to include in one batch LLM call (cluster-then-batch).
+  # Larger batches reduce cost but increase response parse complexity.
+  batch_size: 20
+
+
+# ------------------------------------------------------------------
+# 3. Confidence source weights
+#    Each source's score is multiplied by its method_weight before
+#    being stored in the confidence object {score, source, method_weight}.
+#    This makes a fuzzy 0.91 and an LLM 0.91 distinguishable downstream.
+# ------------------------------------------------------------------
+method_weights:
+  exact:  1.00   # deterministic alias lookup — near-absolute
+  fuzzy:  0.80   # lexical similarity — reliable but not semantic
+  llm:    0.60   # probabilistic reasoning — useful but less consistent
+  human:  1.00   # human approval — treated as ground truth
+
+
+# ------------------------------------------------------------------
+# 4. Extraction confidence gates
+#    Controls DocumentRecord routing in normalize.py / confidence.py.
+#    Centralised here so threshold changes version-stamp correctly.
+# ------------------------------------------------------------------
+extraction:
+
+  # Minimum score to proceed to completion drafter (Gemma pair generation).
+  # Below this triggers LLM fallback (Phase B re-extraction).
+  proceed_gate: 0.50
+
+  # Minimum score to pass quality gate and be eligible for JSONL write.
+  # Below this requires auditor review before the pair is written.
+  quality_gate: 0.70
+
+  # Tier weighting for aggregate extraction_confidence score.
+  tier1_weight: 0.70
+  tier2_weight: 0.30
+  # Tier 3 weight is always 0.0 — never penalised.
+
+  # Confidence floors based on number of Tier 1 fields found.
+  # Format: {min_tier1_fields_found: floor_score}
+  tier1_floors:
+    3: 0.55
+    5: 0.65
+    7: 0.75
+    8: 0.82
+
+  # Per-field agreement scores (used when multiple extractors run).
+  # Format: {extractor_count: {agreement_result: score}}
+  field_agreement_scores:
+    three_extractors:
+      all_agree:    1.0
+      two_agree:    0.7
+      all_disagree: 0.2
+      all_empty:    0.0
+    two_extractors:
+      both_agree:    0.9
+      both_disagree: 0.3
+    single_extractor: 0.6
+    llm_only_min:     0.65
+    llm_only_max:     0.72
+
+
+# ------------------------------------------------------------------
+# 5. Review confidence gate
+#    Controls whether a generated training pair passes to JSONL
+#    or requires auditor correction first.
+# ------------------------------------------------------------------
+review:
+
+  # Minimum review_confidence for a pair to pass quality gate.
+  # Below this → pair is written to review_queue but flagged for correction.
+  quality_gate: 0.70
+
+  # Rubric component weights (must sum to 1.0).
+  rubric_weights:
+    sections_present:    0.30
+    sop_citations:       0.20
+    severity_labels:     0.20
+    client_type_rec:     0.20
+    no_hallucination:    0.10
+
+  # R7 classification-based scoring (score_r7 / set_review_gate_r7)
+  # Replaces the grounding multiplier + hallucination penalty in the old scorer.
+  r7:
+    # Any Tier 1 uncertain field → review_confidence = 0.0 (hard block).
+    # The pair is written to the review queue for auditor resolution.
+    tier1_uncertain_block: true
+
+    # Penalty per Tier 2 uncertain field.
+    # Tier 2 uncertain = data quality signal (weak label confidence).
+    # Soft block — pair is included with label_confidence: low metadata tag.
+    tier2_uncertain_penalty: 0.05
+
+    # Multiplier on signals.pass2_rejection_rate (Signal C).
+    # High rejection rate = classifier was over-confident about present labels.
+    pass2_rejection_weight: 0.10
+
+    # Maximum total deduction from pass2 rejection (prevents single outlier
+    # pair from scoring 0.0 when overall pair quality is otherwise good).
+    pass2_rejection_cap: 0.15
+
+    # Deduction when Signal B (structural_valid) is False.
+    # Schema violation = critical — should be impossible with outlines in prod.
+    structural_invalid_penalty: 0.20
+
+
+# ------------------------------------------------------------------
+# 6. Semantic clustering thresholds
+#    Controls how unknown labels are grouped before batch LLM calls.
+#    Conservative by default — prefer under-clustering.
+# ------------------------------------------------------------------
+clustering:
+
+  # Minimum similarity score for two labels to be placed in the same cluster.
+  # Raise cautiously — bad clusters produce cascading wrong mappings.
+  min_cluster_similarity: 0.82
+
+  # Maximum cluster size sent to LLM in one call.
+  # Larger clusters risk losing individual label nuance.
+  max_cluster_size: 6
+
+  # If a label contains a token in ambiguous_labels.yaml, exclude it
+  # from clustering entirely and route to manual_review bucket.
+  exclude_ambiguous: true
+
+
+# ------------------------------------------------------------------
+# 7. Merge validation thresholds
+#    Controls alias_merger.py's acceptance criteria for pending updates.
+# ------------------------------------------------------------------
+merge:
+
+  # Minimum precision on the evaluation gold set required for a merge
+  # to proceed without an explicit override reason.
+  # A merge that drops precision below this is blocked automatically.
+  min_gold_precision: 0.85
+
+  # Maximum pending aliases allowed in one merge batch.
+  # Larger batches are harder to audit — split into smaller merges.
+  max_batch_size: 50
+
+# ------------------------------------------------------------------
+# 8. Deficiency sampling
+#    Controls pipeline/deficiency_sampler.py — randomised field
+#    combination generation for deficient training pair variants.
+# ------------------------------------------------------------------
+deficiency:
+
+  # Number of deficiency combinations to generate per (doc, client_type).
+  variants_per_workpaper: 2
+
+  # Minimum number of Tier 1 fields in each combination.
+  # Ensures every deficient pair teaches the model about a critical field.
+  min_tier1_per_variant: 1
+
+  # Maximum number of fields removed in one combination.
+  # Larger combinations are less realistic and harder for the model to learn.
+  max_fields_per_variant: 3
+
+  # Sampling weights — Tier 1 fields sampled more frequently than Tier 2.
+  # Must sum to 1.0.
+  tier1_sample_weight: 0.70
+  tier2_sample_weight: 0.30
+
+  # Minimum pool coverage per client type.
+  # pool_coverage = eligible_pool_size / total_canonical_fields (tier1+tier2 total)
+  # Measures SOP-exclusion shrinkage of the canonical field space.
+  # Falling below threshold triggers a WARNING (non-blocking) so pipeline
+  # operators can detect when sop_field_classes.yaml is over-pruning training diversity.
+  # Calibration: NPO has 0 canonical fields excluded → pool_coverage = 1.0;
+  # For-Profit has includes_gagas + includes_single_audit excluded → 13/15 = 0.867.
+  # Thresholds set at 0.80 / 0.70 so only aggressive SOP expansions trigger.
+  min_pool_coverage_by_client_type:
+    NPO:        0.80
+    Government: 0.80
+    For-Profit: 0.70   # lower threshold — q1b/q1c always excluded for For-Profit
+    Tribal:     0.80
+  min_pool_coverage_default: 0.80   # used when client_type not in the map above
+
+# ------------------------------------------------------------------
+# 9. SOP retrieval quality
+#    Controls retrieval gate in pipeline.py and citation verification
+#    in completion_drafter.score_completion().
+# ------------------------------------------------------------------
+sop_retrieval:
+
+  # Minimum chunks returned by retrieve() to consider retrieval healthy.
+  # Below this → fail_policy applies.
+  min_chunks: 1
+
+  # What to do when retrieval fails the health check.
+  # "skip"  — skip pair generation entirely for this workpaper
+  # "flag"  — generate pairs but mark sop_unverified: true in metadata
+  fail_policy: "flag"
+
+  # Whether to verify cited SOP sections against retrieved chunks.
+  # true  — citations not in retrieved sop_sections reduce score
+  # false — legacy behaviour (count §symbols only)
+  citation_verification: false
+
+  # Minimum fraction of citations that must be grounded in retrieved chunks
+  # for the pair to pass the quality gate without auditor review.
+  # 0.0 = no verification enforced (same as citation_verification: false)
+  min_grounded_citation_ratio: 0.50
+
+# ------------------------------------------------------------------
+# 10. Pair deduplication
+#     Controls pair_index.py fingerprint-based duplicate detection.
+# ------------------------------------------------------------------
+deduplication:
+
+  # Operational policy for fingerprint matches.
+  # "soft"   — flag as review_duplicate, reviewer decides (recommended now)
+  # "strict" — hard block, pair never enters JSONL
+  policy: "soft"
+
+  # Whether to include client_type in the structural fingerprint.
+  # true = NPO and Government pairs with same fields are NOT duplicates
+  # false = client_type ignored (more aggressive deduplication)
+  fingerprint_include_client_type: true
+
+  # Feature flag for future semantic (embedding) layer.
+  # false = fingerprint only (current)
+  # true  = fingerprint + embedding similarity (Phase 2, not yet built)
+  semantic_enabled: false
+
+  # Semantic similarity threshold (only used when semantic_enabled: true)
+  semantic_threshold: 0.92
+
+# ------------------------------------------------------------------
+# 11. Grounding validity (claim_mapper.py)
+#     Controls truth alignment between extracted fields and
+#     generated completion text.
+# ------------------------------------------------------------------
+grounding:
+
+  # Penalty per HALLUCINATED claim (field exists in missing_fields
+  # but severity/citation is fabricated). Uncapped.
+  hallucination_penalty_per_claim: 0.15
+
+  # Penalty per MISANCHORED claim (field referenced is in
+  # fields_present, not fields_missing — false deficiency alarm).
+  misanchored_penalty_per_claim: 0.10
+
+  # Penalty per FIXED_ADMIN claim — model cited a structurally fixed SOP
+  # section (always-NO / always-prefilled) that can never be a real finding.
+  # Lower than misanchored because this is structural noise from the SOP
+  # context, not a factual error about the extracted data.
+  fixed_admin_penalty_per_claim: 0.03
+
+  # Penalty when a Tier 1 missing field has no finding covering it.
+  # Applied per uncovered Tier 1 field.
+  coverage_tier1_penalty: 0.08
+
+  # Enable semantic fallback (Layer B) for UNANCHORED claims.
+  # Requires sentence-transformers. Set false to use alias-only anchoring.
+  semantic_fallback_enabled: true
+
+  # Cosine similarity threshold for semantic fallback anchoring.
+  # Above this → claim soft-anchored (not penalised as hallucination).
+  # Below this → claim stays UNANCHORED (partial penalty).
+  semantic_fallback_threshold: 0.45
+
+  # Pass 2 verifier: embedding similarity threshold.
+  # Workpaper text vs field description — higher than Layer B threshold
+  # because Pass 2 is checking document evidence (precision-sensitive).
+  # Below this threshold → Llama check fires (or field downgrades to uncertain).
+  pass2_embedding_threshold: 0.55
+
+  # Grounding multiplier range.
+  # final_score = rubric_score * (grounding_min + grounding_score * grounding_range)
+  # Default: 0.5 + grounding_score * 0.5
+  # → all valid = 1.0x multiplier, all unanchored = 0.5x multiplier
+  grounding_multiplier_min: 0.70
+  grounding_multiplier_range: 0.30
+
+  # Maximum fraction of the grounded rubric score that penalties can remove.
+  # Prevents a long list of MISANCHORED claims (model over-reports findings)
+  # from flooring the score to 0.0 when structural quality is otherwise good.
+  # 0.60 = deductions capped at 60% of (rubric * grounding_multiplier).
+  max_deduction_fraction: 0.20
+
+# ------------------------------------------------------------------
+# 12. Training dataset observability
+#     Controls dataset_observer.py — read-only dataset health layer.
+#     No gates, no blocking. Pure observability.
+# ------------------------------------------------------------------
+observability:
+
+  # Rolling window size for drift calculation.
+  # Compares last N approved pairs vs cumulative distribution.
+  batch_window_size: 20
+
+  # Optional expected distribution by client type.
+  # If defined, report shows actual vs expected delta.
+  # If not defined, raw distributions only.
+  # Values must sum to 1.0. Comment out to disable.
+  # expected_distribution:
+  #   NPO: 0.40
+  #   Government: 0.30
+  #   For-Profit: 0.20
+  #   Tribal: 0.10
+
+  # Minimum times a Tier 1 field must appear in fields_missing
+  # before it is removed from the "never seen" gap list.
+  min_field_appearances: 1
+
+  # Minimum times a deficiency combination must appear to be
+  # considered "covered" rather than "rare pattern".
+  rare_pattern_threshold: 3

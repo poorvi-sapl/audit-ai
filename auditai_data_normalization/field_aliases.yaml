@@ -1,0 +1,650 @@
+# auditai_data_normalization/field_aliases.yaml
+# ==============================================
+# Maps every known surface-form label variant → one canonical field name.
+#
+# How it works
+# ------------
+# normalize.py loads this file once at startup. When an extractor returns
+# a raw dict keyed by whatever label appeared in the document, the alias
+# resolver walks this file and rewrites each key to its canonical name.
+# Unrecognized keys are passed through as-is under metadata{}.
+#
+# How to extend it
+# ----------------
+# When a real document produces a key that isn't mapped here, add it.
+# Keep variants lowercase and stripped — the resolver lowercases and
+# strips all keys before lookup so casing never matters.
+# One canonical name per group. The canonical name is always snake_case.
+#
+# Sources used to seed this file
+# --------------------------------
+# - AD-5001 / NPO-CX-1.1  Engagement Acceptance and Continuance Form (ECE STEP)
+# - ECEStep_Final_Financial_Statements_2024  (Harshwal & Company LLP)
+# - config/pii_patterns.yaml  (from project archive)
+# - config/field_mappings/busy.yaml  (from project archive)
+# - AuditAI_DataNormalization.pptx  (WorkpaperRecord field list)
+#
+# Sections
+# --------
+# 1.  Document / engagement identity
+# 2.  Dates
+# 3.  People and roles
+# 4.  Organization and client
+# 5.  Audit scope and type
+# 6.  Financial statement line items
+# 7.  Balance sheet — assets
+# 8.  Balance sheet — liabilities and net assets
+# 9.  Income statement / statement of activities
+# 10. Cash flow
+# 11. Excel / tabular structure labels
+# 12. Extraction and provenance metadata
+
+
+# ------------------------------------------------------------------
+# 1. Document / engagement identity
+# ------------------------------------------------------------------
+document_title:
+  - "title"
+  - "document title"
+  - "form title"
+  - "workpaper title"
+  - "subject"
+  - "re:"
+  - "regarding"
+
+document_reference:
+  - "index"
+  - "ref"
+  - "reference"
+  - "workpaper ref"
+  - "wp ref"
+  - "doc ref"
+  - "form no"
+  - "form number"
+  - "w/p no"
+  - "w/p number"
+  - "ad-5001"
+  - "npo-cx-1.1"
+
+engagement_code:
+  - "engagement code"
+  - "engagement no"
+  - "engagement number"
+  - "job no"
+  - "job number"
+  - "matter no"
+  - "file no"
+  - "file number"
+  - "project no"
+  - "project number"
+
+
+# ------------------------------------------------------------------
+# 2. Dates
+# ------------------------------------------------------------------
+fiscal_year_end:
+  - "statement of financial position date"
+  - "balance sheet date"
+  - "fiscal year end"
+  - "fiscal year ending"
+  - "year end"
+  - "year ending"
+  - "period end"
+  - "period end date"
+  - "period ending"
+  - "fye"
+  - "as of date"
+  - "report date"
+  - "audit date"
+  - "year ended"
+  - "for the year ended"
+  - "june 30"        # fallback when label is absent but date is in header
+
+preparation_date:
+  - "date"
+  - "completed date"
+  - "prepared date"
+  - "completion date"
+  - "date completed"
+  - "date prepared"
+  - "form date"
+
+partner_sign_date:
+  - "partner date"
+  - "engagement partner date"
+  - "approved date"
+  - "sign date"
+  - "signature date"
+  - "date signed"
+  - "concurrence date"
+
+report_date:
+  - "report date"
+  - "audit report date"
+  - "date of report"
+  - "issued"
+  - "date issued"
+  - "issued date"
+
+
+# ------------------------------------------------------------------
+# 3. People and roles
+# ------------------------------------------------------------------
+preparer_id:
+  - "completed by"
+  - "prepared by"
+  - "preparer"
+  - "staff"
+  - "staff name"
+  - "auditor"
+  - "in-charge"
+  - "in charge"
+  - "associate"
+  - "prepared by (initials)"
+  - "initials"
+
+engagement_partner:
+  - "engagement partner"
+  - "eng. partner"
+  - "eng partner"
+  - "ep:"
+  - "ep"
+  - "partner"
+  - "partner name"
+  - "signing partner"
+  - "audit partner"
+  - "responsible partner"
+  - "managing partner"
+
+reviewer_id:
+  - "reviewed by"
+  - "reviewer"
+  - "senior reviewer"
+  - "manager"
+  - "review partner"
+  - "concurred by"
+  - "concurrence by"
+  - "quality reviewer"
+  - "eqcr"
+
+predecessor_auditor:
+  - "predecessor auditor"
+  - "predecessor"
+  - "prior auditor"
+  - "previous auditor"
+  - "former auditor"
+
+
+# ------------------------------------------------------------------
+# 4. Organization and client
+# ------------------------------------------------------------------
+client_name:
+  - "organization"
+  - "client"
+  - "client name"
+  - "entity"
+  - "entity name"
+  - "auditee"
+  - "auditee name"
+  - "company"
+  - "company name"
+  - "nonprofit"
+  - "nonprofit organization"
+  - "name of organization"
+  - "name of entity"
+
+client_type:
+  - "client type"
+  - "entity type"
+  - "organization type"
+  - "type of entity"
+  - "type of organization"
+  - "sector"
+
+client_address:
+  - "address"
+  - "client address"
+  - "entity address"
+  - "mailing address"
+  - "street address"
+  - "city"
+  - "state"
+
+ein:
+  - "ein"
+  - "employer identification number"
+  - "federal employer id"
+  - "federal id"
+  - "tax id"
+  - "fein"
+  - "taxpayer id"
+
+
+# ------------------------------------------------------------------
+# 5. Audit scope and type
+# ------------------------------------------------------------------
+audit_type:
+  - "audit type"
+  - "type of audit"
+  - "type of engagement"
+  - "engagement type"
+  - "services"
+  - "services requested"
+  - "services desired"
+  - "type of service"
+
+includes_gaas_audit:
+  - "audit of organization's financial statements in accordance with gaas"
+  - "gaas audit"
+  - "financial statement audit"
+  - "audit of financial statements"
+
+includes_single_audit:
+  - "single audit"
+  - "uniform guidance audit"
+  - "2 cfr 200 audit"
+  - "omg uniform guidance"
+  - "federal single audit"
+
+includes_gagas:
+  - "government auditing standards"
+  - "yellow book"
+  - "gagas"
+  - "governmental audit"
+
+includes_grant_compliance:
+  - "audit of compliance with the terms of a grant agreement"
+  - "grant compliance audit"
+  - "grant audit"
+  - "compliance audit"
+
+includes_nonattest_services:
+  - "nonattest services"
+  - "nonaudit services"
+  - "other nonattest"
+  - "other nonaudit"
+  - "bookkeeping"
+  - "financial statement preparation"
+  - "assist in preparing"
+
+financial_statement_use:
+  - "briefly describe the intended use"
+  - "intended use"
+  - "use of financial statements"
+  - "purpose of financial statements"
+  - "financial statement use"
+  - "intended users"
+
+engagement_decision:
+  - "acceptance or continuance"
+  - "accept or continue"
+  - "accept/continue"
+  - "engagement decision"
+  - "continuance decision"
+  - "we should accept"
+  - "we should not accept"
+
+
+# ------------------------------------------------------------------
+# 6. Financial statement — general
+# ------------------------------------------------------------------
+fiscal_year:
+  - "fiscal year"
+  - "fiscal period"
+  - "year"
+  - "period"
+  - "tax year"
+
+reporting_framework:
+  - "basis of accounting"
+  - "accounting basis"
+  - "reporting framework"
+  - "financial reporting framework"
+  - "accounting principles"
+  - "gaap"
+  - "us gaap"
+  - "fasb"
+  - "gasb"
+
+opinion_type:
+  - "opinion"
+  - "audit opinion"
+  - "type of opinion"
+  - "auditor's opinion"
+  - "report type"
+  - "unmodified opinion"
+  - "qualified opinion"
+  - "adverse opinion"
+  - "disclaimer of opinion"
+
+
+# ------------------------------------------------------------------
+# 7. Balance sheet — assets
+# ------------------------------------------------------------------
+total_assets:
+  - "total assets"
+  - "assets, total"
+  - "total asset"
+
+cash_and_investments:
+  - "cash and investments"
+  - "cash and cash equivalents"
+  - "cash"
+  - "cash equivalents"
+  - "investments"
+  - "cash & investments"
+  - "cash & cash equivalents"
+
+accounts_receivable:
+  - "accounts receivable"
+  - "receivables"
+  - "trade receivables"
+  - "grants receivable"
+  - "a/r"
+  - "ar"
+
+prepaid_expenses:
+  - "prepaid expenses"
+  - "prepaid"
+  - "prepaid and other assets"
+  - "prepaid costs"
+
+security_deposits:
+  - "security deposits"
+  - "deposits"
+  - "security deposit"
+
+intangible_assets:
+  - "intangible assets"
+  - "intangibles"
+  - "intangible assets, net"
+  - "net intangible assets"
+
+right_of_use_assets:
+  - "operating lease right-of-use assets"
+  - "right-of-use assets"
+  - "rou assets"
+  - "lease right-of-use assets"
+  - "operating lease rou"
+
+total_current_assets:
+  - "total current assets"
+  - "current assets, total"
+  - "total current asset"
+
+total_noncurrent_assets:
+  - "total noncurrent assets"
+  - "noncurrent assets, total"
+  - "long-term assets"
+  - "total long-term assets"
+
+
+# ------------------------------------------------------------------
+# 8. Balance sheet — liabilities and net assets
+# ------------------------------------------------------------------
+total_liabilities:
+  - "total liabilities"
+  - "liabilities, total"
+  - "total liabilities and net assets"
+
+accounts_payable:
+  - "accounts payable"
+  - "trade payables"
+  - "a/p"
+  - "ap"
+
+accrued_liabilities:
+  - "accrued vacation and other payroll liabilities"
+  - "accrued liabilities"
+  - "accrued expenses"
+  - "accrued payroll"
+  - "accrued wages"
+  - "accrued vacation"
+
+operating_lease_liabilities:
+  - "operating lease liabilities"
+  - "lease liabilities"
+  - "current portion of operating lease"
+  - "operating lease liability"
+
+long_term_loan:
+  - "long-term loan"
+  - "long term loan"
+  - "notes payable"
+  - "loan payable"
+  - "long-term debt"
+  - "long term debt"
+
+total_current_liabilities:
+  - "total current liabilities"
+  - "current liabilities, total"
+
+total_noncurrent_liabilities:
+  - "total noncurrent liabilities"
+  - "noncurrent liabilities, total"
+  - "long-term liabilities"
+
+net_assets:
+  - "net assets"
+  - "total net assets"
+  - "net assets without donor restrictions"
+  - "unrestricted net assets"
+  - "net position"
+  - "fund balance"
+  - "equity"
+
+net_assets_with_restrictions:
+  - "net assets with donor restrictions"
+  - "restricted net assets"
+  - "temporarily restricted"
+  - "permanently restricted"
+
+
+# ------------------------------------------------------------------
+# 9. Income statement / statement of activities
+# ------------------------------------------------------------------
+total_revenue:
+  - "total revenues and support"
+  - "total revenue"
+  - "revenues and support"
+  - "total revenues"
+  - "total income"
+  - "total support and revenue"
+
+service_revenue:
+  - "service revenue"
+  - "service revenues"
+  - "program service revenue"
+  - "fees for service"
+  - "fee revenue"
+  - "client fees"
+
+grant_revenue:
+  - "grant revenue"
+  - "grants"
+  - "government grants"
+  - "federal grants"
+  - "state grants"
+  - "contributions and grants"
+
+total_expenses:
+  - "total expenses"
+  - "expenses, total"
+  - "total expenditures"
+  - "total costs"
+
+program_expenses:
+  - "program services"
+  - "program expenses"
+  - "program service expenses"
+  - "direct program costs"
+
+management_general_expenses:
+  - "management and general"
+  - "general and administrative"
+  - "g&a"
+  - "administrative expenses"
+  - "management and general expenses"
+
+salaries_wages:
+  - "salaries and wages"
+  - "salaries"
+  - "wages"
+  - "compensation"
+  - "salaries & wages"
+  - "payroll"
+
+fringe_benefits:
+  - "fringe benefits"
+  - "employee benefits"
+  - "benefits"
+  - "payroll taxes and benefits"
+  - "fringe"
+
+professional_fees:
+  - "professional fees"
+  - "consulting fees"
+  - "legal fees"
+  - "accounting fees"
+  - "audit fees"
+  - "outside services"
+
+net_income:
+  - "increase in net assets"
+  - "decrease in net assets"
+  - "change in net assets"
+  - "net income"
+  - "net loss"
+  - "surplus"
+  - "deficit"
+  - "excess of revenues over expenses"
+  - "excess revenues"
+
+
+# ------------------------------------------------------------------
+# 10. Cash flow
+# ------------------------------------------------------------------
+net_cash_operating:
+  - "net cash provided by operating activities"
+  - "net cash used in operating activities"
+  - "net cash provided by/(used in) operating activities"
+  - "cash from operations"
+  - "operating cash flow"
+
+net_cash_investing:
+  - "net cash provided by investing activities"
+  - "net cash used in investing activities"
+  - "cash from investing"
+  - "investing cash flow"
+
+net_cash_financing:
+  - "net cash provided by financing activities"
+  - "net cash used in financing activities"
+  - "cash from financing"
+  - "financing cash flow"
+
+cash_beginning_of_year:
+  - "cash and cash equivalents, beginning of year"
+  - "cash, beginning of year"
+  - "beginning cash"
+  - "cash at beginning of period"
+  - "opening cash"
+
+cash_end_of_year:
+  - "cash and cash equivalents, end of year"
+  - "cash, end of year"
+  - "ending cash"
+  - "cash at end of period"
+  - "closing cash"
+
+
+# ------------------------------------------------------------------
+# 11. Excel / tabular structure labels
+# ------------------------------------------------------------------
+account_code:
+  - "account code"
+  - "account no"
+  - "account number"
+  - "acct"
+  - "acct no"
+  - "acct code"
+  - "gl code"
+  - "ledger code"
+  - "account_code"     # busy.yaml
+  - "acc_no"
+
+account_name:
+  - "account name"
+  - "account description"
+  - "description"
+  - "ledger name"
+  - "acct name"
+  - "account_name"     # busy.yaml
+  - "ledger_name"
+
+amount:
+  - "amount"
+  - "amt"
+  - "value"
+  - "balance"
+  - "total"
+  - "net"
+
+debit:
+  - "debit"
+  - "dr"
+  - "debit amount"
+  - "opening_debit"    # busy.yaml
+  - "current_debit"
+
+credit:
+  - "credit"
+  - "cr"
+  - "credit amount"
+  - "opening_credit"   # busy.yaml
+  - "current_credit"
+
+transaction_date:
+  - "date"
+  - "transaction date"
+  - "voucher date"
+  - "vch_date"         # busy.yaml
+  - "voucher_date"
+  - "trans_date"
+  - "posting date"
+
+row_type:
+  - "row type"
+  - "type"
+  - "category"
+  - "line type"
+  - "subtotal"
+  - "total row"
+
+sheet_name:
+  - "sheet"
+  - "sheet name"
+  - "tab"
+  - "worksheet"
+
+
+# ------------------------------------------------------------------
+# 12. Extraction and provenance metadata
+# ------------------------------------------------------------------
+source_year:
+  - "year"
+  - "fiscal year"
+  - "audit year"
+  - "engagement year"
+  - "tax year"
+
+extraction_method:
+  - "extracted by"
+  - "extraction method"
+  - "source tool"
+
+confidence_score:
+  - "confidence"
+  - "confidence score"
+  - "extraction confidence"
+  - "ocr confidence"

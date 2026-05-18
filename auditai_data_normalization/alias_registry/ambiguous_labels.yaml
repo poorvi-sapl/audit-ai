@@ -1,0 +1,223 @@
+# alias_registry/ambiguous_labels.yaml
+# ======================================
+# Labels that are semantically valid but cannot be resolved to a single
+# canonical field without additional context from the document.
+#
+# Purpose
+# -------
+# alias_fuzzy.py checks this file before attempting any match. A label
+# found here is routed directly to the manual_review bucket with a note
+# explaining what context is needed. It is never sent to fuzzy matching
+# or LLM suggestion — both would produce inconsistent results.
+#
+# Schema (per entry)
+# ------------------
+# label               str        — normalized label (lowercase, stripped)
+# candidate_fields    list[str]  — canonical fields this could map to
+# requires_context    bool       — always true for entries in this file
+# context_signals     list[str]  — what nearby document signals would
+#                                  disambiguate this label
+# ambiguity_type      str        — one of: multi_field | template_variant |
+#                                  scope_dependent | role_dependent
+# notes               str        — explanation for reviewers
+# added_by            str        — who added this entry
+# added_at            str        — ISO 8601 UTC
+# source_workpapers   list[str]  — files where this ambiguity was observed
+#
+# Ambiguity types
+# ---------------
+# multi_field       — label genuinely maps to different fields depending
+#                     on document section or table position
+# template_variant  — same label used with different meanings across
+#                     different firm templates
+# scope_dependent   — meaning changes based on audit scope or client type
+# role_dependent    — meaning changes based on who is filling in the form
+#
+# How context_signals are used (future Phase)
+# -------------------------------------------
+# When contextual resolution is implemented, these signals define what
+# the context extractor looks for in neighboring cells, section headers,
+# and worksheet names to auto-resolve the ambiguity.
+#
+# Versioning
+# ----------
+# Included in every alias system snapshot. Labels resolved via contextual
+# resolution are removed from this file and added to field_aliases.yaml.
+#
+# Last reviewed: 2026-05-14
+# Sourced from:  real label + alias analysis across 7 engagement workpapers
+
+
+ambiguous_labels:
+
+  # ------------------------------------------------------------------
+  # "type" — appears as row_type, client_type, audit_type, opinion_type
+  # depending entirely on which table section it appears in.
+  # ------------------------------------------------------------------
+  - label: "type"
+    candidate_fields:
+      - row_type
+      - client_type
+      - audit_type
+      - opinion_type
+    requires_context: true
+    context_signals:
+      - "section header (Part I vs financial tables)"
+      - "neighboring column headers"
+      - "worksheet name"
+    ambiguity_type: multi_field
+    notes: >
+      Standalone 'type' is unresolvable. In financial tables it is row_type.
+      In Part I of engagement forms it is client_type. In scope sections it
+      is audit_type. Needs section header or table position to disambiguate.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "NPO-CX-1_1 Engagement Accept and Cont Form...docx"
+
+  # ------------------------------------------------------------------
+  # "name" — could be client_name, preparer_id, engagement_partner,
+  # or account_name depending on table row position.
+  # ------------------------------------------------------------------
+  - label: "name"
+    candidate_fields:
+      - client_name
+      - preparer_id
+      - engagement_partner
+      - account_name
+    requires_context: true
+    context_signals:
+      - "row position in signature block"
+      - "preceding label in same row (e.g. 'Prepared By')"
+      - "section header"
+    ambiguity_type: multi_field
+    notes: >
+      Bare 'name' is a column header artifact. Meaning depends entirely on
+      which signature row or table section it appears in. Never map without
+      knowing the surrounding labels.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "IMM NPO CX 1 1 Engagement Accept and Cont Form.docx"
+
+  # ------------------------------------------------------------------
+  # "period" — fiscal_year vs fiscal_year_end vs cash_beginning/end
+  # depending on financial statement context vs engagement form context.
+  # ------------------------------------------------------------------
+  - label: "period"
+    candidate_fields:
+      - fiscal_year
+      - fiscal_year_end
+    requires_context: true
+    context_signals:
+      - "worksheet name (engagement form vs financial statements)"
+      - "neighboring date fields"
+      - "whether a start and end date appear in adjacent cells"
+    ambiguity_type: scope_dependent
+    notes: >
+      In engagement forms 'period' usually means fiscal_year_end.
+      In financial statement workpapers it means fiscal_year (a range).
+      The worksheet or document type resolves this, not the label itself.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "ECEStep_Final_Financial_Statements_2024[111.pdf"
+      - "NPO-CX-1_1 Engagement Accept and Cont Form...docx"
+
+  # ------------------------------------------------------------------
+  # "prepared by" — preparer_id vs engagement_partner depending on
+  # whether this is a staff preparer row or partner sign-off row.
+  # ------------------------------------------------------------------
+  - label: "prepared by"
+    candidate_fields:
+      - preparer_id
+      - engagement_partner
+    requires_context: true
+    context_signals:
+      - "presence of a separate 'Engagement Partner' row nearby"
+      - "position in signature block (first row vs last row)"
+      - "whether an 'Reviewed By' row follows"
+    ambiguity_type: role_dependent
+    notes: >
+      Most engagement forms have both a 'Prepared By' (staff) and a separate
+      'Engagement Partner' row. When only one signature row exists and it says
+      'Prepared By', it is likely the partner. Needs signature block structure
+      to resolve reliably. Already in field_aliases.yaml as preparer_id but
+      flagged here because template variants cause misrouting.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "IIT NPO-CX-1.1 Engagement Accept and Cont Form.docx"
+      - "IMM NPO CX 1 1 Engagement Accept and Cont Form.docx"
+
+  # ------------------------------------------------------------------
+  # "standard" — includes_gagas vs reporting_framework vs audit_type
+  # depending on whether it refers to the standard applied or reported under.
+  # ------------------------------------------------------------------
+  - label: "standard"
+    candidate_fields:
+      - includes_gagas
+      - reporting_framework
+      - audit_type
+    requires_context: true
+    context_signals:
+      - "neighboring checkbox labels (GAGAS, GAAS, FASB, GASB)"
+      - "section context (scope vs reporting framework section)"
+    ambiguity_type: scope_dependent
+    notes: >
+      Seen in SOP document as a metadata field. In engagement forms it
+      typically refers to the auditing standard applied. Without the
+      neighboring checkbox values or section header it is unresolvable.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "SOP_NPO_CX_1_1_Final_v10 (1).docx"
+
+  # ------------------------------------------------------------------
+  # "effective date" — could be fiscal_year_end, partner_sign_date,
+  # or a SOP/policy effective date depending on document type.
+  # ------------------------------------------------------------------
+  - label: "effective date"
+    candidate_fields:
+      - fiscal_year_end
+      - partner_sign_date
+      - preparation_date
+    requires_context: true
+    context_signals:
+      - "document type (SOP vs engagement form vs financial statement)"
+      - "section header"
+    ambiguity_type: template_variant
+    notes: >
+      In SOP documents 'effective date' is the policy effective date — not
+      an engagement field at all. In engagement forms it sometimes appears
+      as an alias for fiscal_year_end or partner_sign_date. Document type
+      must be known before mapping.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "SOP_NPO_CX_1_1_Final_v10 (1).docx"
+
+  # ------------------------------------------------------------------
+  # "approved by" — partner_sign_date's signer vs a generic approval
+  # column in a checklist table. Not the same as engagement_partner.
+  # ------------------------------------------------------------------
+  - label: "approved by"
+    candidate_fields:
+      - engagement_partner
+      - preparer_id
+    requires_context: true
+    context_signals:
+      - "whether a date field appears in the same row"
+      - "section (signature block vs checklist table)"
+    ambiguity_type: role_dependent
+    notes: >
+      In signature blocks 'approved by' is the engagement_partner.
+      In checklist tables it is a generic approval column with no fixed
+      field identity. Also appears in SOP metadata as a non-engagement field.
+      Already in blocked_patterns.yaml as a standalone label — this entry
+      covers compound rows where 'approved by' is a row header.
+    added_by: "system_init"
+    added_at: "2026-05-14T00:00:00+00:00"
+    source_workpapers:
+      - "SOP_NPO_CX_1_1_Final_v10 (1).docx"
+      - "NPO-CX-1_1 Engagement Accept and Cont Form...docx"

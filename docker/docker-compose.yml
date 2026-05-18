@@ -1,0 +1,23 @@
+# Postgres 18 and Qdrant are already running as separate Docker containers
+# (container names: "postgres" on :5432, "qdrant" on :6333).
+# MongoDB is running as a system service on 127.0.0.1:27017.
+# This compose file manages only Redis.
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+
+volumes:
+  redis_data:

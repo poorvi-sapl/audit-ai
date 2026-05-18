@@ -1,0 +1,986 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit Process by Client Type — Harshwal & Company LLP</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=JetBrains+Mono:wght@400;500;600&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #F7F6F2;
+  --bg2:      #EEECEA;
+  --bg3:      #E4E1DC;
+  --ink:      #1A1714;
+  --ink2:     #3D3A35;
+  --ink3:     #7A756C;
+  --border:   #D4CFC8;
+  --border2:  #C4BEB5;
+
+  --npo:      #2B5F8E;
+  --npo-light:#EBF2FA;
+  --npo-mid:  #C5DDEF;
+
+  --gov:      #1E7A52;
+  --gov-light:#E8F7F0;
+  --gov-mid:  #B8E4D0;
+
+
+  --gold:     #C8900A;
+  --gold-light:#FFF3D6;
+  --red:      #C0392B;
+  --red-light:#FDECEA;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Mulish',sans-serif;font-size:15px;line-height:1.72;overflow-x:hidden}
+
+/* ── TYPOGRAPHY ── */
+h1,h2,h3,h4{font-family:'Playfair Display',serif;line-height:1.15}
+code,pre,.mono{font-family:'JetBrains Mono',monospace}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(247,246,242,0.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 36px}
+.nav-logo{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-0.3px}
+.nav-logo span{color:var(--npo)}
+.nav-pills{display:flex;gap:6px}
+.np{padding:5px 14px;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;cursor:pointer;border:1.5px solid var(--border);color:var(--ink3);background:transparent;transition:all .2s;text-transform:uppercase}
+.np:hover{border-color:var(--border2);color:var(--ink2);background:var(--bg2)}
+.np.active-npo{background:var(--npo-light);border-color:var(--npo);color:var(--npo)}
+.np.active-gov{background:var(--gov-light);border-color:var(--gov);color:var(--gov)}
+
+/* ── HERO ── */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 60px 70px;position:relative;overflow:hidden;background:var(--ink)}
+.hero-texture{position:absolute;inset:0;opacity:.04;background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.5) 39px,rgba(255,255,255,.5) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.5) 39px,rgba(255,255,255,.5) 40px)}
+.hero-number{position:absolute;right:-20px;top:50%;transform:translateY(-50%);font-family:'Playfair Display',serif;font-size:clamp(200px,25vw,360px);font-weight:800;color:rgba(255,255,255,.04);line-height:1;pointer-events:none;letter-spacing:-10px}
+.hero-content{position:relative;z-index:2;max-width:780px}
+.hero-tag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:28px;opacity:0;animation:slideIn .7s .2s ease forwards}
+.hero h1{font-size:clamp(40px,5.5vw,80px);font-weight:800;color:#fff;line-height:1.02;letter-spacing:-2px;margin-bottom:24px;opacity:0;animation:slideIn .7s .38s ease forwards}
+.hero h1 em{font-style:italic;color:rgba(255,255,255,.5)}
+.hero-desc{font-size:16px;color:rgba(255,255,255,.55);max-width:520px;margin-bottom:48px;line-height:1.68;opacity:0;animation:slideIn .7s .52s ease forwards}
+.hero-client-row{display:flex;flex-wrap:wrap;gap:14px;opacity:0;animation:slideIn .7s .66s ease forwards}
+.hcr-item{display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);transition:all .22s;text-decoration:none}
+.hcr-item:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);transform:translateY(-2px)}
+.hcr-dot{width:8px;height:8px;border-radius:50%}
+.hcr-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.hcr-sub{font-size:11px;color:rgba(255,255,255,.35);margin-left:18px}
+
+/* ── PHASE INTRO BANNER ── */
+.phase-banner{background:var(--ink);color:#fff;padding:60px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.pb-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;opacity:.5}
+.pb-title{font-family:'Playfair Display',serif;font-size:clamp(28px,3vw,46px);font-weight:800;line-height:1.1;margin-bottom:18px}
+.pb-desc{font-size:14px;color:rgba(255,255,255,.6);line-height:1.7}
+.pb-phases{display:flex;flex-direction:column;gap:12px}
+.pb-phase{display:flex;align-items:center;gap:16px;padding:14px 18px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:all .2s;text-decoration:none}
+.pb-phase:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18)}
+.pb-phase-num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;min-width:36px;opacity:.4}
+.pb-phase-text .ppt{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px}
+.pb-phase-text .pps{font-size:12px;color:rgba(255,255,255,.45)}
+
+/* ── SECTION SHELL ── */
+section{padding:80px 0}
+.container{max-width:1140px;margin:0 auto;padding:0 48px}
+.sec-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.sec-title{font-family:'Playfair Display',serif;font-size:clamp(28px,3vw,44px);font-weight:800;letter-spacing:-1px;line-height:1.1;margin-bottom:36px}
+hr.div{border:none;border-top:1px solid var(--border)}
+
+/* ── CLIENT TABS ── */
+.client-tabs{display:flex;gap:0;margin-bottom:0;border:1.5px solid var(--border);border-radius:14px 14px 0 0;overflow:hidden;background:var(--bg2)}
+.ct{flex:1;padding:16px 12px;text-align:center;cursor:pointer;border-right:1px solid var(--border);transition:all .22s;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);position:relative}
+.ct:last-child{border-right:none}
+.ct::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;transition:background .22s}
+.ct .ct-icon{font-size:18px;display:block;margin-bottom:5px}
+.ct.a-npo{background:var(--npo-light);color:var(--npo)}
+.ct.a-npo::after{background:var(--npo)}
+.ct.a-gov{background:var(--gov-light);color:var(--gov)}
+.ct.a-gov::after{background:var(--gov)}
+
+.tab-content{display:none;border:1.5px solid var(--border);border-top:none;border-radius:0 0 14px 14px;background:#fff;padding:40px}
+.tab-content.active{display:block}
+
+/* ── PHASE CARDS ── */
+.phases-wrap{display:flex;flex-direction:column;gap:0}
+.phase-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;background:#fff}
+.phase-head{display:flex;align-items:center;gap:20px;padding:20px 26px;cursor:pointer;transition:background .2s;user-select:none;position:relative}
+.phase-head:hover{background:var(--bg)}
+.ph-num{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;min-width:52px;line-height:1}
+.ph-info{flex:1}
+.ph-name{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;margin-bottom:3px}
+.ph-sub{font-size:12px;color:var(--ink3);font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+.ph-badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.ph-badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 9px;border-radius:100px;letter-spacing:.5px}
+.ph-arrow{font-size:18px;color:var(--ink3);transition:transform .25s;flex-shrink:0}
+.phase-card.open .ph-arrow{transform:rotate(45deg)}
+.phase-body{display:none;padding:0 26px 28px;border-top:1px solid var(--border)}
+.phase-card.open .phase-body{display:block}
+
+/* ── STEP LIST ── */
+.step-list{display:flex;flex-direction:column;gap:0;margin:20px 0;position:relative}
+.step-list::before{content:'';position:absolute;left:22px;top:0;bottom:0;width:1.5px;background:var(--border)}
+.step-item{display:flex;gap:20px;padding:16px 0;position:relative}
+.si-num{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;flex-shrink:0;position:relative;z-index:1;border:2px solid}
+.si-body{flex:1;padding-top:10px}
+.si-title{font-weight:700;font-size:15px;margin-bottom:6px;line-height:1.3}
+.si-desc{font-size:13.5px;color:var(--ink2);line-height:1.68;margin-bottom:10px}
+
+/* ── EXAMPLE BOX ── */
+.eg{background:var(--bg);border:1px solid var(--border);border-left:3.5px solid;border-radius:0 10px 10px 0;padding:16px 20px;margin:10px 0;font-size:13px}
+.eg-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+.eg-body{color:var(--ink2);line-height:1.68}
+.eg-body strong{color:var(--ink)}
+
+/* ── CHECKLIST ── */
+.checklist{list-style:none;padding:0;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.checklist li{display:flex;gap:10px;font-size:13.5px;color:var(--ink2);align-items:flex-start}
+.checklist li::before{content:'✓';font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;flex-shrink:0;margin-top:3px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:currentColor;color:#fff}
+
+/* ── 2-COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+.mini-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.mb-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;font-weight:600}
+.mb-body{font-size:13px;color:var(--ink2);line-height:1.65}
+.mb-body ul{padding-left:16px}
+.mb-body ul li{margin-bottom:4px}
+
+/* ── DOCUMENT TABLE ── */
+.doc-table{width:100%;border-collapse:collapse;font-size:13px;margin:14px 0}
+.doc-table th{background:var(--bg2);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:10px 14px;text-align:left;border-bottom:2px solid var(--border);color:var(--ink3)}
+.doc-table td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--ink2)}
+.doc-table tr:hover td{background:var(--bg)}
+.doc-table td:first-child{font-weight:600;color:var(--ink)}
+
+/* ── CALLOUT ── */
+.callout{border-radius:10px;padding:16px 20px;margin:16px 0;display:flex;gap:14px;align-items:flex-start;font-size:13.5px}
+.cl-icon{font-size:18px;flex-shrink:0;margin-top:2px}
+.cl-body{color:var(--ink2);line-height:1.65}
+.cl-body strong{color:var(--ink)}
+.cl-ai{background:var(--npo-light);border:1px solid var(--npo-mid)}
+.cl-warn{background:var(--gold-light);border:1px solid #E8C060}
+.cl-risk{background:var(--red-light);border:1px solid #E8ADAG}
+
+/* ── TIMELINE ── */
+.timeline{display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:20px 0;position:relative}
+.tl-item{text-align:center;position:relative;padding:0 4px}
+.tl-item::before{content:'';position:absolute;top:14px;left:50%;right:-50%;height:2px;background:var(--border);z-index:0}
+.tl-item:last-child::before{display:none}
+.tl-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;margin:0 auto 8px;position:relative;z-index:1;border:2px solid;background:#fff}
+.tl-label{font-size:11px;font-weight:700;margin-bottom:3px;line-height:1.3}
+.tl-time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink3);letter-spacing:.5px}
+
+/* ── WORKPAPER MATRIX ── */
+.wp-matrix{width:100%;border-collapse:collapse;font-size:12.5px;margin:16px 0;overflow:hidden;border-radius:10px;border:1px solid var(--border)}
+.wp-matrix th{padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;border-bottom:2px solid var(--border);text-align:left;background:var(--bg2)}
+.wp-matrix td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--ink2);line-height:1.5}
+.wp-matrix tr:last-child td{border-bottom:none}
+.wp-matrix tr:hover td{background:var(--bg)}
+.wp-matrix td:first-child{font-weight:600;color:var(--ink);font-size:13px}
+
+/* ── COMPARISON SECTION ── */
+.compare-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:32px}
+.cg-card{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.cg-head{padding:20px 22px;border-bottom:1px solid var(--border)}
+.cg-head .cg-type{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.cg-head .cg-name{font-family:'Playfair Display',serif;font-size:18px;font-weight:700}
+.cg-body{padding:20px 22px}
+.cg-phase{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cg-phase:last-child{border-bottom:none}
+.cg-phase-num{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;min-width:20px;margin-top:2px}
+.cg-phase-info .cpt{font-size:13px;font-weight:600;margin-bottom:2px}
+.cg-phase-info .cps{font-size:11.5px;color:var(--ink3)}
+
+/* ── BADGE ── */
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:100px;font-weight:600}
+.b-high{background:var(--red-light);color:var(--red);border:1px solid rgba(192,57,43,.2)}
+.b-med{background:var(--gold-light);color:var(--gold);border:1px solid rgba(200,144,10,.2)}
+.b-low{background:var(--gov-light);color:var(--gov);border:1px solid rgba(30,122,82,.2)}
+.b-req{background:var(--npo-light);color:var(--npo);border:1px solid rgba(43,95,142,.2)}
+.b-uniq{background:var(--bg2);color:var(--ink3);border:1px solid var(--border)}
+
+/* ── REVEAL ── */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
+.reveal.vis{opacity:1;transform:translateY(0)}
+
+/* ── ANIMATIONS ── */
+@keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── FOOTER ── */
+footer{background:var(--ink);color:rgba(255,255,255,.4);text-align:center;padding:36px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;line-height:2}
+
+/* ── RESPONSIVE ── */
+@media(max-width:860px){
+  .hero{padding:100px 24px 60px}
+  .container{padding:0 20px}
+  .two-col{grid-template-columns:1fr}
+  .compare-grid{grid-template-columns:1fr}
+  .timeline{grid-template-columns:repeat(3,1fr)}
+  nav{padding:0 20px}
+  .nav-pills{display:none}
+  .phase-banner{grid-template-columns:1fr}
+  .client-tabs{flex-wrap:wrap}
+  .ct{min-width:50%}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Harshwal <span>&</span> Co — Audit Process Guide</div>
+  <div class="nav-pills">
+    <div class="np" onclick="goto('overview')">Overview</div>
+    <div class="np" onclick="goto('npo-section')">NPO</div>
+    <div class="np" onclick="goto('gov-section')">Local Gov</div>
+    <div class="np" onclick="goto('compare-section')">Compare</div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="overview">
+  <div class="hero-texture"></div>
+  <div class="hero-number">A</div>
+  <div class="hero-content">
+    <div class="hero-tag">// Harshwal & Company LLP · AuditAI · Internal Training Guide · April 2026</div>
+    <h1>The Complete<br>Audit Process<br><em>by Client Type</em></h1>
+    <p class="hero-desc">Every phase, every workpaper, every deliverable — explained with real examples from a CPA firm perspective. Written for a data scientist building AuditAI in-house.</p>
+    <div class="hero-client-row">
+      <a href="#npo-section" class="hcr-item">
+        <div class="hcr-dot" style="background:#5B9BD5"></div>
+        <div><div class="hcr-label">NPO</div><div class="hcr-sub">Non-Profit Org</div></div>
+      </a>
+      <a href="#gov-section" class="hcr-item">
+        <div class="hcr-dot" style="background:#2ED8A0"></div>
+        <div><div class="hcr-label">Local Gov</div><div class="hcr-sub">City / County / District</div></div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- PHASE OVERVIEW BANNER -->
+<div class="phase-banner">
+  <div>
+    <div class="pb-label">Universal Audit Structure</div>
+    <div class="pb-title">Every audit follows the same 5-phase skeleton</div>
+    <p class="pb-desc">Regardless of client type, every audit at HCLLP follows the same overarching phases. What differs dramatically is the <em>content</em> of each phase — the specific procedures, workpapers, risks, and judgments required. This guide walks through each phase for each client type with real examples.</p>
+  </div>
+  <div class="pb-phases">
+    <a class="pb-phase" href="#phase-planning"><div class="pb-phase-num">01</div><div class="pb-phase-text"><div class="ppt">Planning & Risk Assessment</div><div class="pps">Understand the client · Set materiality · Identify risks</div></div></a>
+    <a class="pb-phase" href="#phase-ic"><div class="pb-phase-num">02</div><div class="pb-phase-text"><div class="ppt">Internal Controls</div><div class="pps">Understand controls · Test operating effectiveness</div></div></a>
+    <a class="pb-phase" href="#phase-substantive"><div class="pb-phase-num">03</div><div class="pb-phase-text"><div class="ppt">Substantive Testing</div><div class="pps">Test transactions · Confirm balances · Analytical procedures</div></div></a>
+    <a class="pb-phase" href="#phase-compliance"><div class="pb-phase-num">04</div><div class="pb-phase-text"><div class="ppt">Compliance Testing</div><div class="pps">Federal programs · Grant requirements · Regulations</div></div></a>
+    <a class="pb-phase" href="#phase-reporting"><div class="pb-phase-num">05</div><div class="pb-phase-text"><div class="ppt">Reporting & Wrap-up</div><div class="pps">Draft opinions · Issue findings · Final review</div></div></a>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- ════════════════════════════════ NPO SECTION ════════════════════════════════ -->
+<section id="npo-section" style="background:var(--bg)">
+<div class="container">
+  <div class="sec-eyebrow reveal">// Client Type 01</div>
+  <div class="sec-title reveal" style="color:var(--npo)">Non-Profit Organization (NPO)<br><span style="font-size:.6em;color:var(--ink3);font-style:italic">FASB · Contributions · Functional Expenses · Single Audit (if $750K+)</span></div>
+
+  <div class="callout cl-warn reveal">
+    <div class="cl-icon">🧠</div>
+    <div class="cl-body"><strong>CPA Firm Context (HCLLP):</strong> At Harshwal & Company, NPO clients include food banks, community action agencies, housing nonprofits, and social service organizations — mostly in New Mexico. They typically receive a mix of federal grants (HHS, USDA, HUD), state contracts, and private donations. Most trigger a Single Audit. The audit is moderate complexity — FASB rules are simpler than GASB, but grant compliance and contribution accounting require careful judgment.</div>
+  </div>
+
+  <!-- NPO TIMELINE -->
+  <div class="timeline reveal" style="margin-bottom:40px">
+    <div class="tl-item">
+      <div class="tl-dot" style="border-color:var(--npo);color:var(--npo)">01</div>
+      <div class="tl-label">Planning</div>
+      <div class="tl-time">Weeks 1–2</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="border-color:var(--npo);color:var(--npo)">02</div>
+      <div class="tl-label">Internal Controls</div>
+      <div class="tl-time">Weeks 2–3</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="border-color:var(--npo);color:var(--npo)">03</div>
+      <div class="tl-label">Substantive Testing</div>
+      <div class="tl-time">Weeks 3–5</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="border-color:var(--npo);color:var(--npo)">04</div>
+      <div class="tl-label">Compliance</div>
+      <div class="tl-time">Weeks 4–6</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="border-color:var(--npo);color:var(--npo)">05</div>
+      <div class="tl-label">Reporting</div>
+      <div class="tl-time">Weeks 6–8</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot" style="border-color:var(--npo);color:var(--npo)" >✓</div>
+      <div class="tl-label">Issued</div>
+      <div class="tl-time">~9 weeks total</div>
+    </div>
+  </div>
+
+  <div class="phases-wrap reveal">
+
+    <!-- PHASE 1 -->
+    <div class="phase-card open" style="border-left:4px solid var(--npo)" id="phase-planning">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--npo)">01</div>
+        <div class="ph-info">
+          <div class="ph-name">Planning & Risk Assessment</div>
+          <div class="ph-sub">Engagement setup · Materiality · Risk identification · SEFA determination</div>
+          <div class="ph-badge-row"><span class="badge b-req">REQUIRED ALL TYPES</span><span class="badge b-uniq">NPO: Contribution risk focus</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="step-list">
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">1.1</div>
+            <div class="si-body">
+              <div class="si-title">Engagement Letter & Acceptance</div>
+              <div class="si-desc">Before any audit work begins, HCLLP sends an engagement letter confirming scope, fees, responsibilities, and report types. For an NPO, this will specify: financial statement audit under GAAS, Yellow Book compliance (if applicable), and Single Audit under Uniform Guidance (if federal expenditures ≥ $750K).</div>
+              <div class="eg" style="border-color:var(--npo)">
+                <div class="eg-label" style="color:var(--npo)">// Example — HCLLP Context</div>
+                <div class="eg-body"><strong>Client:</strong> Albuquerque Community Food Bank. Prior year federal expenditures = $820,000. Engagement letter scope includes: (1) GAAS audit of financial statements, (2) Yellow Book compliance audit, (3) Single Audit of federal programs. Estimated fee: $28,000. Timeline: fieldwork August, report issued November.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">1.2</div>
+            <div class="si-body">
+              <div class="si-title">Understand the Entity — Preliminary Review</div>
+              <div class="si-desc">The auditor reviews prior year financial statements, the IRS Form 990 (nonprofits file this annually — it's public), board meeting minutes, bylaws, and major grant agreements. The goal: understand how the NPO operates, who controls it, and where money comes from and goes.</div>
+              <div class="two-col">
+                <div class="mini-box">
+                  <div class="mb-label">Documents Reviewed</div>
+                  <div class="mb-body"><ul><li>Prior year audited financials</li><li>IRS Form 990 (public document)</li><li>Board meeting minutes (all year)</li><li>Bylaws and conflict of interest policy</li><li>Major grant agreements</li><li>Organizational chart</li></ul></div>
+                </div>
+                <div class="mini-box">
+                  <div class="mb-label">NPO-Specific Questions</div>
+                  <div class="mb-body"><ul><li>What % of revenue is government grants?</li><li>Are there donor-restricted endowments?</li><li>Has the board approved spending restrictions?</li><li>Any new programs started this year?</li><li>Any grants with unusual conditions?</li><li>Net asset deficit? Going concern risk?</li></ul></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">1.3</div>
+            <div class="si-body">
+              <div class="si-title">Set Materiality — Planning & Performance</div>
+              <div class="si-desc">Materiality is the threshold below which a misstatement is too small to matter. The auditor calculates Planning Materiality (overall), Performance Materiality (lower, for individual tests), and Trivial/Clearly Inconsequential amount. For NPOs, the base is typically total expenses or total revenues.</div>
+              <div class="eg" style="border-color:var(--npo)">
+                <div class="eg-label" style="color:var(--npo)">// Materiality Calculation — NPO Example</div>
+                <div class="eg-body">
+                  Total Expenses = <strong>$1,840,000</strong><br>
+                  Planning Materiality = 2% of total expenses = <strong>$36,800</strong><br>
+                  Performance Materiality = 75% of planning = <strong>$27,600</strong><br>
+                  Trivial amount = 5% of planning = <strong>$1,840</strong><br><br>
+                  <em>What this means: Any single error over $36,800 is material. The auditor designs tests to catch errors above $27,600. Errors below $1,840 are ignored entirely.</em>
+                </div>
+              </div>
+              <div class="callout cl-ai">
+                <div class="cl-icon">🤖</div>
+                <div class="cl-body"><strong>AuditAI — Calculation Engine:</strong> This is a prime Calculation Engine task. Given total expenses from the trial balance, auto-compute all three materiality figures using the applicable percentage. For NPOs the base is expenses; for governments it's revenues or expenditures; The base selection itself is a labeled input — the AI should know which base to use by <code>client_type</code> (NPO → total expenses; Govt → revenues or expenditures, whichever is larger).</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">1.4</div>
+            <div class="si-body">
+              <div class="si-title">Identify Significant Audit Areas & Inherent Risks</div>
+              <div class="si-desc">The auditor identifies which financial statement areas carry the highest risk of material misstatement. For NPOs, the top risks are always: contribution revenue recognition, functional expense allocation, and federal grant compliance. These become the focus areas that get the most audit work.</div>
+              <div class="two-col">
+                <div class="mini-box">
+                  <div class="mb-label">NPO Inherent Risk Areas</div>
+                  <div class="mb-body"><ul>
+                    <li><strong>HIGH:</strong> Contribution revenue (restriction classification)</li>
+                    <li><strong>HIGH:</strong> Grant compliance (allowable costs)</li>
+                    <li><strong>HIGH:</strong> Functional expense allocation</li>
+                    <li><strong>MED:</strong> Related party transactions</li>
+                    <li><strong>MED:</strong> Going concern / liquidity</li>
+                    <li><strong>LOW:</strong> Investment valuation</li>
+                  </ul></div>
+                </div>
+                <div class="mini-box">
+                  <div class="mb-label">Risk Assessment Workpaper Output</div>
+                  <div class="mb-body"><ul>
+                    <li>Risk of Material Misstatement matrix</li>
+                    <li>Significant account list</li>
+                    <li>Audit response for each risk</li>
+                    <li>Overall engagement risk: Low/Med/High</li>
+                    <li>Planning memo signed by engagement partner</li>
+                  </ul></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">1.5</div>
+            <div class="si-body">
+              <div class="si-title">SEFA Determination — Is Single Audit Required?</div>
+              <div class="si-desc">The auditor compiles (or reviews management's compilation of) the Schedule of Expenditures of Federal Awards. If total federal expenditures ≥ $750K, a Single Audit is required. The SEFA must list every federal award by CFDA/ALN number, federal agency, amount expended, and any pass-through amounts.</div>
+              <div class="eg" style="border-color:var(--npo)">
+                <div class="eg-label" style="color:var(--npo)">// NPO SEFA — Food Bank Example</div>
+                <div class="eg-body" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:2">
+                  <span style="color:var(--ink)">CFDA/ALN  |  Federal Agency  |  Program                        |  Expended</span><br>
+                  10.567    |  USDA           |  TEFAP (Emergency Food)          |  $480,000<br>
+                  93.568    |  HHS            |  Emergency Food & Shelter         |  $220,000<br>
+                  14.231    |  HUD            |  ESG (Emergency Solutions)        |  $90,000<br>
+                  93.044    |  HHS            |  Senior Nutrition Program         |  $75,000<br>
+                  <span style="color:var(--npo);font-weight:600">TOTAL FEDERAL EXPENDITURES:                                  $865,000 → SINGLE AUDIT REQUIRED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /step-list -->
+      </div>
+    </div><!-- /Phase 1 -->
+
+    <!-- PHASE 2 -->
+    <div class="phase-card" style="border-left:4px solid var(--npo)">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--npo)">02</div>
+        <div class="ph-info">
+          <div class="ph-name">Internal Controls Assessment</div>
+          <div class="ph-sub">Control environment · Key controls · Walkthroughs · Control deficiencies</div>
+          <div class="ph-badge-row"><span class="badge b-req">REQUIRED ALL TYPES</span><span class="badge b-uniq">NPO: Board oversight, small staff risk</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">2.1</div>
+            <div class="si-body">
+              <div class="si-title">Understand the Control Environment</div>
+              <div class="si-desc">The control environment is the "tone at the top" — does management care about controls? For NPOs, the key questions are: Is the board actively engaged? Does it approve budgets, review financials monthly, and oversee management? Are there written policies? Most small NPOs have weak controls due to limited staff.</div>
+              <div class="eg" style="border-color:var(--npo)">
+                <div class="eg-label" style="color:var(--npo)">// Common NPO Control Weakness</div>
+                <div class="eg-body"><strong>Finding:</strong> A food bank has 3 accounting staff. One person receives cash donations, records them in the accounting system, AND deposits them at the bank. This is a <strong>lack of segregation of duties</strong> — the same person controls the entire cash process with no independent check. This is a Significant Deficiency (or Material Weakness if large amounts). The auditor must expand substantive testing to compensate for this control gap.</div>
+              </div>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">2.2</div>
+            <div class="si-body">
+              <div class="si-title">Walkthrough — Revenue Process</div>
+              <div class="si-desc">The auditor traces ONE transaction from beginning to end to verify the system works as described. For NPOs, the most important walkthrough is contribution/grant revenue: from receipt of cash/check → recording in GL → bank deposit → financial statement.</div>
+              <div class="two-col">
+                <div class="mini-box">
+                  <div class="mb-label">Walkthrough Steps</div>
+                  <div class="mb-body"><ul>
+                    <li>Receive donor check in mail</li>
+                    <li>Finance director opens mail & logs check</li>
+                    <li>Bookkeeper records in accounting system</li>
+                    <li>Monthly reconciliation to bank statement</li>
+                    <li>Board treasurer reviews monthly reports</li>
+                  </ul></div>
+                </div>
+                <div class="mini-box">
+                  <div class="mb-label">Control Points Tested</div>
+                  <div class="mb-body"><ul>
+                    <li>Is the check log independent of recording?</li>
+                    <li>Is revenue classified by restriction correctly?</li>
+                    <li>Does someone independent reconcile to bank?</li>
+                    <li>Does board review monthly financials?</li>
+                    <li>Are unusual items escalated to leadership?</li>
+                  </ul></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">2.3</div>
+            <div class="si-body">
+              <div class="si-title">Grant Compliance Controls</div>
+              <div class="si-desc">For NPOs receiving federal grants, auditors test whether there are controls to ensure compliance with each grant's rules: Are costs allowable? Is procurement following federal standards? Are financial reports filed on time? Is there a subrecipient monitoring process?</div>
+              <div class="callout cl-ai">
+                <div class="cl-icon">🤖</div>
+                <div class="cl-body"><strong>AuditAI Context:</strong> Internal control workpapers for NPOs use consistent questionnaire structures. These are excellent training data for pattern recognition — the AI can learn that "IC questionnaire + NPO + contribution revenue" always leads to specific follow-up procedures. These workpapers are labeled <code>workpaper_type = internal_control</code> in the ETL pipeline.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /Phase 2 NPO -->
+
+    <!-- PHASE 3 -->
+    <div class="phase-card" style="border-left:4px solid var(--npo)" id="phase-substantive">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--npo)">03</div>
+        <div class="ph-info">
+          <div class="ph-name">Substantive Testing</div>
+          <div class="ph-sub">Revenue · Expenses · Balance sheet accounts · Contribution restrictions</div>
+          <div class="ph-badge-row"><span class="badge b-high">Highest effort phase</span><span class="badge b-uniq">NPO unique: restriction testing</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <table class="doc-table">
+          <thead><tr><th>Audit Area</th><th>Procedure</th><th>NPO-Specific Focus</th><th>Risk</th></tr></thead>
+          <tbody>
+            <tr><td>Contribution Revenue</td><td>Test sample of donations to donor acknowledgment letters and board restriction logs. Verify restriction classification.</td><td>Is "with restriction" vs "without restriction" correct? Were conditional grants deferred?</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>Grant Revenue</td><td>Agree grant amounts to award letters. Verify conditions were met before revenue recognized. Test reimbursement requests to supporting invoices.</td><td>Exchange transaction vs. contribution analysis. Conditional vs. unconditional.</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>Functional Expenses</td><td>Test time allocation percentages for key employees. Recalculate allocation for 5–10 employees. Compare to prior year percentages.</td><td>Is Program % inflated? Are allocations documented and consistently applied?</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>Net Assets</td><td>Roll forward net assets from prior year. Verify releases from restriction are properly supported by documentation of condition met.</td><td>"Release from restriction" workpaper — unique to NPOs. Donor agreement must support the release.</td><td><span class="badge b-med">MED</span></td></tr>
+            <tr><td>Cash & Bank Rec</td><td>Obtain bank statements directly from bank. Reconcile to GL. Test outstanding items. Verify cutoff.</td><td>Same as all entities — no NPO-specific twist here. Calculation Engine handles math.</td><td><span class="badge b-low">LOW</span></td></tr>
+            <tr><td>Investments / Endowment</td><td>Confirm fair values to brokerage statements. Test investment income allocation between restricted/unrestricted.</td><td>UPMIFA spending policy compliance. Is endowment underwater?</td><td><span class="badge b-med">MED</span></td></tr>
+            <tr><td>Payroll / Benefits</td><td>Test payroll register to HR records. Verify benefit costs. Test fringe benefit rates used in grant allocations.</td><td>Fringe benefit rates are often used to allocate indirect costs to grants — must be supportable.</td><td><span class="badge b-med">MED</span></td></tr>
+          </tbody>
+        </table>
+        <div class="eg" style="border-color:var(--npo);margin-top:16px">
+          <div class="eg-label" style="color:var(--npo)">// Real Workpaper Example — Contribution Revenue Test</div>
+          <div class="eg-body">
+            Auditor selects 30 contribution transactions above performance materiality ($27,600) from the revenue ledger. For each:<br><br>
+            <strong>1.</strong> Obtain donor acknowledgment letter — verify amount, date, and any restriction language<br>
+            <strong>2.</strong> Trace to bank deposit slip — verify cash was received<br>
+            <strong>3.</strong> Verify GL coding — was it coded to "with restriction" or "without restriction" correctly?<br>
+            <strong>4.</strong> If coded as "with restriction" — verify the restriction was still active at year-end<br>
+            <strong>5.</strong> If a grant — verify the grant conditions were met before revenue was recognized<br><br>
+            <em>Finding example: $45,000 grant from HHS coded as revenue in March (when cash was received). But the grant agreement required the NPO to complete a training program first (a condition). Training wasn't completed until June. The $45,000 should have been a liability ("refundable advance") at March 31 year-end — material misstatement.</em>
+          </div>
+        </div>
+      </div>
+    </div><!-- /Phase 3 NPO -->
+
+    <!-- PHASE 4 -->
+    <div class="phase-card" style="border-left:4px solid var(--npo)" id="phase-compliance">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--npo)">04</div>
+        <div class="ph-info">
+          <div class="ph-name">Compliance Testing (Single Audit)</div>
+          <div class="ph-sub">Major program selection · Compliance requirements · Findings</div>
+          <div class="ph-badge-row"><span class="badge b-req">Required if ≥$750K federal</span><span class="badge b-high">High regulatory risk</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">4.1</div>
+            <div class="si-body">
+              <div class="si-title">Determine Major Programs</div>
+              <div class="si-desc">Not all federal programs get tested equally. The auditor uses a risk-based approach (Step 1–6 in the Uniform Guidance) to identify "major programs" that require full compliance testing. For a small NPO with $865K total federal expenditures, typically 1–2 programs will be major.</div>
+              <div class="eg" style="border-color:var(--npo)">
+                <div class="eg-label" style="color:var(--npo)">// Major Program Determination — Food Bank</div>
+                <div class="eg-body">Type A threshold = $750K × 0.03 = <strong>$22,500</strong><br>
+                Type A programs (above threshold): TEFAP $480K ✓ — HHS Emergency Food $220K ✓<br>
+                Type B programs: HUD ESG $90K, Senior Nutrition $75K<br><br>
+                <strong>Step 2:</strong> Are Type A programs low-risk? TEFAP was audited last year with no findings → LOW RISK → still selected as major.<br>
+                <strong>Result: TEFAP and HHS Emergency Food are Major Programs.</strong> Both receive full compliance testing. HUD ESG and Senior Nutrition are not tested unless risk-based selection adds them.</div>
+              </div>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="si-num" style="background:var(--npo-light);border-color:var(--npo);color:var(--npo)">4.2</div>
+            <div class="si-body">
+              <div class="si-title">Test Compliance Requirements</div>
+              <div class="si-desc">The OMB Compliance Supplement lists 12 types of compliance requirements for each federal program. The auditor identifies which are "direct and material" to each major program and tests those. Common requirements: Activities Allowed, Eligibility, Procurement, Reporting, Subrecipient Monitoring.</div>
+              <table class="wp-matrix">
+                <thead><tr><th>Compliance Requirement</th><th>What's Tested</th><th>Test Procedure</th></tr></thead>
+                <tbody>
+                  <tr><td>Activities Allowed / Unallowed</td><td>Were program funds spent only on allowable costs?</td><td>Select 25 disbursements → verify each is an allowable cost per grant agreement</td></tr>
+                  <tr><td>Eligibility</td><td>Did program serve eligible recipients?</td><td>Test 20 beneficiary files → verify income documentation, household size, eligibility determination</td></tr>
+                  <tr><td>Procurement</td><td>Were purchases made following federal procurement standards?</td><td>Test 15 purchases → verify competitive bidding, contract documentation, debarment checks</td></tr>
+                  <tr><td>Reporting</td><td>Were required federal reports filed on time and accurately?</td><td>Obtain all required reports → agree amounts to accounting records → verify submission dates</td></tr>
+                  <tr><td>Period of Performance</td><td>Were costs incurred within the grant period?</td><td>Test sample → verify dates on invoices fall within grant period</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /Phase 4 NPO -->
+
+    <!-- PHASE 5 -->
+    <div class="phase-card" style="border-left:4px solid var(--npo)" id="phase-reporting">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--npo)">05</div>
+        <div class="ph-info">
+          <div class="ph-name">Reporting & Wrap-Up</div>
+          <div class="ph-sub">Financial statement opinion · Yellow Book report · Single Audit reports · Management letter</div>
+          <div class="ph-badge-row"><span class="badge b-req">Required — all types</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="two-col">
+          <div class="mini-box">
+            <div class="mb-label">Reports Issued — NPO with Single Audit</div>
+            <div class="mb-body"><ul>
+              <li><strong>Independent Auditor's Report</strong> — Opinion on financial statements (unmodified, qualified, adverse, or disclaimer)</li>
+              <li><strong>Report on Internal Control</strong> — Yellow Book report on significant deficiencies / material weaknesses</li>
+              <li><strong>Report on Compliance</strong> — Yellow Book compliance with laws and regulations</li>
+              <li><strong>Report on Federal Programs</strong> — Single Audit opinion on major programs</li>
+              <li><strong>Schedule of Findings</strong> — Lists all findings with questioned costs</li>
+              <li><strong>Management Letter</strong> — Non-material observations and recommendations</li>
+            </ul></div>
+          </div>
+          <div class="mini-box">
+            <div class="mb-label">Finding Classification (if issues found)</div>
+            <div class="mb-body"><ul>
+              <li><strong>Material Weakness:</strong> Severe IC deficiency — reasonable chance of material misstatement going undetected. Must be reported publicly.</li>
+              <li><strong>Significant Deficiency:</strong> Less severe but still important IC weakness. Reported to those charged with governance.</li>
+              <li><strong>Material Noncompliance:</strong> Compliance failure that is material to a federal program. Results in questioned costs.</li>
+              <li><strong>Questioned Costs:</strong> Specific dollar amount of potentially improper expenditures.</li>
+            </ul></div>
+          </div>
+        </div>
+        <div class="callout cl-ai" style="margin-top:16px">
+          <div class="cl-icon">🤖</div>
+          <div class="cl-body"><strong>AuditAI — Report Generation:</strong> The reporting phase is where AI adds the most direct value. Given a completed workpaper package, the AI can draft the standard language for all 6 report types above. The report language is highly standardized (AU-C standards dictate the exact wording for each opinion type). Training on historical HCLLP reports will teach the model firm-specific style within the prescribed framework. Label these as <code>workpaper_type = final_report</code>.</div>
+        </div>
+      </div>
+    </div><!-- /Phase 5 NPO -->
+
+  </div><!-- /phases-wrap NPO -->
+</div>
+</section>
+
+<hr class="div">
+
+<!-- ════════════════════════════════ LOCAL GOV SECTION ════════════════════════════════ -->
+<section id="gov-section" style="background:var(--gov-light)">
+<div class="container">
+  <div class="sec-eyebrow reveal">// Client Type 02</div>
+  <div class="sec-title reveal" style="color:var(--gov)">Local Government (ALG)<br><span style="font-size:.6em;color:var(--ink3);font-style:italic">GASB · Fund Accounting · Pensions · Capital Assets · Single Audit</span></div>
+
+  <div class="callout cl-warn reveal">
+    <div class="cl-icon">🧠</div>
+    <div class="cl-body"><strong>CPA Firm Context (HCLLP):</strong> Local government clients include NM cities, counties, school districts, water districts, and transit authorities. These are HCLLP's most technically complex engagements — GASB standards require fund-level AND government-wide statements, pension liabilities (GASB 68) often exceed the entire operating budget, and capital assets require meticulous tracking. Engagements typically run 10–14 weeks. Fee range: $35,000–$120,000+ depending on size.</div>
+  </div>
+
+  <div class="timeline reveal" style="margin-bottom:40px">
+    <div class="tl-item"><div class="tl-dot" style="border-color:var(--gov);color:var(--gov)">01</div><div class="tl-label">Planning</div><div class="tl-time">Weeks 1–3</div></div>
+    <div class="tl-item"><div class="tl-dot" style="border-color:var(--gov);color:var(--gov)">02</div><div class="tl-label">IC Testing</div><div class="tl-time">Weeks 2–4</div></div>
+    <div class="tl-item"><div class="tl-dot" style="border-color:var(--gov);color:var(--gov)">03</div><div class="tl-label">Substantive</div><div class="tl-time">Weeks 4–8</div></div>
+    <div class="tl-item"><div class="tl-dot" style="border-color:var(--gov);color:var(--gov)">04</div><div class="tl-label">Compliance</div><div class="tl-time">Weeks 6–10</div></div>
+    <div class="tl-item"><div class="tl-dot" style="border-color:var(--gov);color:var(--gov)">05</div><div class="tl-label">Reporting</div><div class="tl-time">Weeks 10–14</div></div>
+    <div class="tl-item"><div class="tl-dot" style="border-color:var(--gov);color:var(--gov)">✓</div><div class="tl-label">Issued</div><div class="tl-time">~14 weeks</div></div>
+  </div>
+
+  <div class="phases-wrap reveal">
+
+    <div class="phase-card open" style="border-left:4px solid var(--gov)">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--gov)">01</div>
+        <div class="ph-info">
+          <div class="ph-name">Planning & Risk Assessment</div>
+          <div class="ph-sub">Fund structure · GASB risk areas · Materiality (by fund) · SEFA</div>
+          <div class="ph-badge-row"><span class="badge b-req">REQUIRED</span><span class="badge b-uniq">GOV: Fund-level materiality</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="si-num" style="background:var(--gov-light);border-color:var(--gov);color:var(--gov)">1.1</div>
+            <div class="si-body">
+              <div class="si-title">Map the Fund Structure</div>
+              <div class="si-desc">Unlike NPOs with a single set of books, local governments have multiple funds — each is essentially a separate entity with its own budget and financial statements. The first planning step is mapping every fund and understanding what each one does.</div>
+              <div class="eg" style="border-color:var(--gov)">
+                <div class="eg-label" style="color:var(--gov)">// Example: County of Rio Arriba, NM — Fund Map</div>
+                <div class="eg-body" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.9">
+                  <span style="color:var(--ink)">Fund                    | Type           | Budget   | Key Risk</span><br>
+                  General Fund            | Governmental   | $12.4M   | Payroll, vendor payments<br>
+                  Road Fund               | Special Revenue| $3.1M    | Capital outlay, FHWA grants<br>
+                  Debt Service Fund       | Governmental   | $1.8M    | Bond payments<br>
+                  Capital Projects Fund   | Governmental   | $5.2M    | Construction contracts<br>
+                  Water Enterprise Fund   | Proprietary    | $2.4M    | Revenue bonds, rate setting<br>
+                  Risk Management Fund    | Internal Svc   | $0.8M    | Self-insurance reserves<br>
+                  Pension Trust Fund      | Fiduciary      | $—       | Investment returns, distributions<br>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--gov-light);border-color:var(--gov);color:var(--gov)">1.2</div>
+            <div class="si-body">
+              <div class="si-title">Set Materiality — Government-Wide AND Per Major Fund</div>
+              <div class="si-desc">Local governments need TWO levels of materiality: one for the government-wide financial statements and one for each "major fund." A misstatement in the Water Fund might be immaterial to the whole government but material to just that fund. Both must be set.</div>
+              <div class="eg" style="border-color:var(--gov)">
+                <div class="eg-label" style="color:var(--gov)">// Gov-Wide Materiality Example</div>
+                <div class="eg-body">
+                  Total Revenues (Govt-wide) = <strong>$18.6M</strong><br>
+                  Planning Materiality = 1.5% of revenues = <strong>$279,000</strong><br>
+                  Performance Materiality = 75% = <strong>$209,250</strong><br><br>
+                  General Fund materiality (separate) = 2% of $12.4M = <strong>$248,000</strong><br>
+                  Water Fund materiality (separate) = 3% of $2.4M = <strong>$72,000</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="si-num" style="background:var(--gov-light);border-color:var(--gov);color:var(--gov)">1.3</div>
+            <div class="si-body">
+              <div class="si-title">Identify Government-Specific Risk Areas</div>
+              <div class="si-desc">Local governments have distinct risk areas that don't exist for NPOs. The auditor must flag all of these during planning because each requires specialized workpapers and often specialist involvement (actuary, appraiser).</div>
+              <div class="two-col">
+                <div class="mini-box">
+                  <div class="mb-label">GOV-ONLY Risk Areas</div>
+                  <div class="mb-body"><ul>
+                    <li><strong>GASB 68 Pension — HIGH:</strong> Net Pension Liability requires actuary. Often largest balance sheet item.</li>
+                    <li><strong>GASB 75 OPEB — HIGH:</strong> Retiree health benefits. Similar complexity to pensions.</li>
+                    <li><strong>Capital Assets — HIGH:</strong> Roads, bridges, infrastructure — huge values, poor tracking common.</li>
+                    <li><strong>Long-Term Debt — HIGH:</strong> Bond covenants must be tested. GASB 87 leases added new complexity.</li>
+                    <li><strong>Fund Balance Classification — MED:</strong> GASB 54 five-way classification.</li>
+                  </ul></div>
+                </div>
+                <div class="mini-box">
+                  <div class="mb-label">Standard (Same as NPO) Risk Areas</div>
+                  <div class="mb-body"><ul>
+                    <li>Cash and bank reconciliations</li>
+                    <li>Accounts payable cutoff</li>
+                    <li>Payroll and benefits</li>
+                    <li>Federal grant compliance</li>
+                    <li>Related party transactions</li>
+                    <li>Going concern / financial condition</li>
+                  </ul></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /GOV Phase 1 -->
+
+    <div class="phase-card" style="border-left:4px solid var(--gov)">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--gov)">02</div>
+        <div class="ph-info">
+          <div class="ph-name">Internal Controls — Governmental</div>
+          <div class="ph-sub">Elected officials · Weak segregation of duties · IT general controls · Budget compliance</div>
+          <div class="ph-badge-row"><span class="badge b-uniq">GOV unique: Budget controls</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="step-list">
+          <div class="step-item">
+            <div class="si-num" style="background:var(--gov-light);border-color:var(--gov);color:var(--gov)">2.1</div>
+            <div class="si-body">
+              <div class="si-title">Budget Controls — Unique to Governments</div>
+              <div class="si-desc">Local governments are legally required to stay within their adopted budgets. Overspending a budget is NOT just bad management — it can be illegal. Auditors test whether actual expenditures exceeded appropriations at the fund/department level (budgetary compliance). This control test has NO equivalent in NPO audits.</div>
+              <div class="eg" style="border-color:var(--gov)">
+                <div class="eg-label" style="color:var(--gov)">// Budgetary Compliance Test</div>
+                <div class="eg-body">General Fund Legal Appropriation (Police Dept): <strong>$3,200,000</strong><br>
+                Actual Expenditures: <strong>$3,340,000</strong><br>
+                <span style="color:var(--red)">OVER budget by $140,000 — FINDING: Expenditures exceeded legal appropriation.</span><br><br>
+                This is a compliance finding under state budget law, not just a management observation. It will appear in the Yellow Book compliance report.</div>
+              </div>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="si-num" style="background:var(--gov-light);border-color:var(--gov);color:var(--gov)">2.2</div>
+            <div class="si-body">
+              <div class="si-title">Segregation of Duties — Small Government Challenge</div>
+              <div class="si-desc">Many small NM cities and counties have 2–3 finance staff. One finance director + one clerk = cannot have proper segregation. The auditor documents this and adjusts testing — more substantive work is required when controls can't be relied upon.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /GOV Phase 2 -->
+
+    <div class="phase-card" style="border-left:4px solid var(--gov)">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--gov)">03</div>
+        <div class="ph-info">
+          <div class="ph-name">Substantive Testing — Governmental</div>
+          <div class="ph-sub">Pensions · Capital assets · Debt rollforward · Tax revenue · Fund statements</div>
+          <div class="ph-badge-row"><span class="badge b-high">Highest complexity phase</span><span class="badge b-uniq">GOV unique: GASB 68, capital assets, modified accrual</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <table class="doc-table">
+          <thead><tr><th>Audit Area</th><th>Procedure</th><th>GOV-Specific Detail</th><th>Risk</th></tr></thead>
+          <tbody>
+            <tr><td>Pension Liability (GASB 68)</td><td>Obtain actuarial report. Agree NPL, pension expense, deferred items to report. Recalculate proportionate share. Test journal entries.</td><td>Discount rate assumption tested. Proportionate share % agreed to state plan allocation letter. Prior service cost amortization verified.</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>OPEB (GASB 75)</td><td>Obtain OPEB actuarial report. Agree figures to financial statements. Test roll-forward of OPEB liability.</td><td>Separate from pension — different actuary, different assumptions. Post-retirement health benefit obligations. GASB 75 effective 2018.</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>Capital Assets</td><td>Agree opening balance to prior year. Test additions (vouch to invoices/contracts). Test disposals (verify removal from ledger). Verify depreciation calculation.</td><td>Infrastructure assets (roads) are hardest — estimated useful life 40–50 years. Construction-in-progress must be transferred when complete. Modified Approach option for networks.</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>Long-Term Debt</td><td>Obtain debt schedule. Roll forward all debt instruments: Beginning + New − Repaid = Ending. Agree ending to TB. Agree interest expense to amortization schedule. Test bond covenant compliance.</td><td>GO Bonds, Revenue Bonds, NMFA loans, USDA loans, capital leases (GASB 87), OPEB-related debt — each needs separate rollforward line.</td><td><span class="badge b-high">HIGH</span></td></tr>
+            <tr><td>Property Tax Revenue</td><td>Obtain tax roll from county assessor. Test levy calculation. Apply 60-day rule — defer taxes collected after year-end +60 days.</td><td>GASB modified accrual: revenue recognized only if collected within 60 days of year-end. Delinquent taxes → deferred inflow of resources.</td><td><span class="badge b-med">MED</span></td></tr>
+            <tr><td>Fund Balance (GASB 54)</td><td>Verify each fund balance is correctly classified: nonspendable, restricted, committed, assigned, or unassigned. Test supporting documentation for each classification.</td><td>Committed = requires formal board action (resolution). Assigned = management intent. Unassigned = residual in General Fund only.</td><td><span class="badge b-med">MED</span></td></tr>
+            <tr><td>Government-Wide Conversion</td><td>Verify conversion from fund-level to government-wide statements. Capital assets added back. Long-term debt added. Internal fund eliminations.</td><td>GASB requires two statement levels. The conversion workpaper reconciles the two. Deferred items must convert correctly.</td><td><span class="badge b-med">MED</span></td></tr>
+          </tbody>
+        </table>
+        <div class="eg" style="border-color:var(--gov);margin-top:16px">
+          <div class="eg-label" style="color:var(--gov)">// GASB 68 Pension Workpaper — Step by Step</div>
+          <div class="eg-body">
+            <strong>Step 1:</strong> Obtain the NM PERA actuarial valuation report (state sends this to all participating employers)<br>
+            <strong>Step 2:</strong> Find the county's Employer Allocation % in the report (e.g., Rio Arriba County = 0.83% of total PERA liability)<br>
+            <strong>Step 3:</strong> Apply 0.83% to total PERA Net Pension Liability ($2.7B) = County NPL = <strong>$22.4M</strong><br>
+            <strong>Step 4:</strong> Agree this to the county's balance sheet — does it match?<br>
+            <strong>Step 5:</strong> Verify pension expense for the year: service cost + interest − expected returns + amortization of deferred items<br>
+            <strong>Step 6:</strong> Trace deferred outflows (employer contributions after measurement date) to payment records<br>
+            <strong>Step 7:</strong> Trace deferred inflows (experience gains/losses) to actuarial report<br>
+            <strong>Step 8:</strong> Recalculate the amortization of each deferred component<br><br>
+            <em>This workpaper is 30–50 pages for a mid-size government. The Calculation Engine should auto-verify all arithmetic in steps 3, 5, and 8.</em>
+          </div>
+        </div>
+      </div>
+    </div><!-- /GOV Phase 3 -->
+
+    <div class="phase-card" style="border-left:4px solid var(--gov)">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--gov)">04</div>
+        <div class="ph-info">
+          <div class="ph-name">Compliance Testing (Single Audit)</div>
+          <div class="ph-sub">Federal programs · State compliance · Budget law · Debt covenants</div>
+          <div class="ph-badge-row"><span class="badge b-req">Required if ≥$750K federal</span><span class="badge b-uniq">GOV: State law compliance layer added</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="callout cl-warn">
+          <div class="cl-icon">⚡</div>
+          <div class="cl-body"><strong>Key difference from NPO:</strong> Local governments have an additional compliance layer — <strong>state laws and regulations</strong>. In New Mexico, HCLLP must also test compliance with the NM Audit Act, the NM Procurement Code, and NM Budget Act. NPOs don't have this state compliance layer. This generates additional workpapers that are GOV-only.</div>
+        </div>
+        <div class="two-col">
+          <div class="mini-box">
+            <div class="mb-label">Federal Compliance (same as NPO)</div>
+            <div class="mb-body"><ul>
+              <li>Major program determination (SEFA)</li>
+              <li>Compliance supplement requirements</li>
+              <li>Activities allowed, eligibility, procurement</li>
+              <li>Reporting, subrecipient monitoring</li>
+              <li>Schedule of Findings & Questioned Costs</li>
+            </ul></div>
+          </div>
+          <div class="mini-box">
+            <div class="mb-label">State Compliance (GOV-ONLY)</div>
+            <div class="mb-body"><ul>
+              <li>NM Budget Act — expenditures vs. appropriations</li>
+              <li>NM Procurement Code — competitive bidding</li>
+              <li>NM Audit Act — timely filing of audit report</li>
+              <li>Debt covenants — revenue bonds, NMFA loans</li>
+              <li>Investment Policy compliance</li>
+            </ul></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /GOV Phase 4 -->
+
+    <div class="phase-card" style="border-left:4px solid var(--gov)">
+      <div class="phase-head" onclick="togglePhase(this)">
+        <div class="ph-num" style="color:var(--gov)">05</div>
+        <div class="ph-info">
+          <div class="ph-name">Reporting — Government</div>
+          <div class="ph-sub">ACFR · Yellow Book · Single Audit · State reporting requirements</div>
+          <div class="ph-badge-row"><span class="badge b-uniq">GOV: Additional state reports</span></div>
+        </div>
+        <div class="ph-arrow">+</div>
+      </div>
+      <div class="phase-body">
+        <div class="two-col">
+          <div class="mini-box">
+            <div class="mb-label">Reports Issued — Local Government</div>
+            <div class="mb-body"><ul>
+              <li><strong>ACFR Opinion</strong> — opinion on govt-wide + fund statements</li>
+              <li><strong>Yellow Book IC Report</strong> — internal control deficiencies</li>
+              <li><strong>Yellow Book Compliance Report</strong> — state law compliance</li>
+              <li><strong>Budgetary Comparison</strong> — budget vs. actual schedules</li>
+              <li><strong>Single Audit Reports</strong> — if $750K+ federal</li>
+              <li><strong>NM OSA Filing</strong> — filed with NM Office of State Auditor</li>
+            </ul></div>
+          </div>
+          <div class="mini-box">
+            <div class="mb-label">NM-Specific Requirement</div>
+            <div class="mb-body"><ul>
+              <li>All NM government audits must be filed with the NM Office of State Auditor (OSA)</li>
+              <li>Filed within 6 months of fiscal year-end (June 30 FYE → December 31 deadline)</li>
+              <li>OSA reviews for completeness and may issue comments</li>
+              <li>HCLLP coordinates with OSA on first-time findings</li>
+              <li>This state-level oversight has no NPO equivalent</li>
+            </ul></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /GOV Phase 5 -->
+
+  </div>
+</div>
+</section>
+
+<hr class="div">
+
+<!-- ════════════════════════════════ COMPARISON SECTION ════════════════════════════════ -->
+<section id="compare-section" style="background:var(--bg2)">
+<div class="container">
+  <div class="sec-eyebrow reveal">// Section 05 — Side by Side</div>
+  <div class="sec-title reveal">Audit Process <em>Comparison</em></div>
+
+  <div class="compare-grid reveal">
+    <div class="cg-card">
+      <div class="cg-head" style="border-top:3px solid var(--npo)">
+        <div class="cg-type" style="color:var(--npo)">NPO</div>
+        <div class="cg-name">Non-Profit</div>
+      </div>
+      <div class="cg-body">
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--npo)">01</div><div class="cg-phase-info"><div class="cpt">Planning</div><div class="cps">Set materiality on total expenses. SEFA if $750K+ federal. Risk focus: contribution restrictions.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--npo)">02</div><div class="cg-phase-info"><div class="cpt">Internal Controls</div><div class="cps">Board oversight, small staff segregation of duties, grant compliance controls.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--npo)">03</div><div class="cg-phase-info"><div class="cpt">Substantive Testing</div><div class="cps">Contribution revenue, functional expense allocation, restriction releases, net assets rollforward.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--npo)">04</div><div class="cg-phase-info"><div class="cpt">Compliance (Single Audit)</div><div class="cps">1–3 major programs. USDA, HHS, HUD typical. Activities allowed, eligibility, procurement.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--npo)">05</div><div class="cg-phase-info"><div class="cpt">Reporting</div><div class="cps">6 reports: financial opinion + Yellow Book IC + Yellow Book compliance + SA opinion + findings + management letter.</div></div></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="mb-label">Duration & Complexity</div>
+          <div style="font-size:13px;color:var(--ink2)">~8–10 weeks &nbsp;·&nbsp; Moderate complexity &nbsp;·&nbsp; $20,000–$40,000 typical fee</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cg-card">
+      <div class="cg-head" style="border-top:3px solid var(--gov)">
+        <div class="cg-type" style="color:var(--gov)">LOCAL GOV</div>
+        <div class="cg-name">City / County / District</div>
+      </div>
+      <div class="cg-body">
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--gov)">01</div><div class="cg-phase-info"><div class="cpt">Planning</div><div class="cps">Set materiality BOTH government-wide AND per fund. Map all funds. Flag GASB 68, 75, 87, capital assets.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--gov)">02</div><div class="cg-phase-info"><div class="cpt">Internal Controls</div><div class="cps">Budget controls (budget law compliance), elected official oversight, procurement controls.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--gov)">03</div><div class="cg-phase-info"><div class="cpt">Substantive Testing</div><div class="cps">GASB 68 pension (largest workpaper), capital assets, debt rollforward, tax revenue (60-day), fund balance classification, govt-wide conversion.</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--gov)">04</div><div class="cg-phase-info"><div class="cpt">Compliance</div><div class="cps">Federal programs (Single Audit) + state law compliance (NM Budget Act, Procurement Code, NM Audit Act, NM OSA filing).</div></div></div>
+        <div class="cg-phase"><div class="cg-phase-num" style="color:var(--gov)">05</div><div class="cg-phase-info"><div class="cpt">Reporting</div><div class="cps">ACFR + Yellow Book + Single Audit + Budgetary Comparison + NM OSA filing. State has 6-month deadline.</div></div></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="mb-label">Duration & Complexity</div>
+          <div style="font-size:13px;color:var(--ink2)">~12–14 weeks &nbsp;·&nbsp; High complexity &nbsp;·&nbsp; $35,000–$120,000 typical fee</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<hr class="div">
+<footer>
+  <p>HARSHWAL & COMPANY LLP &nbsp;·&nbsp; AUDIT PROCESS BY CLIENT TYPE &nbsp;·&nbsp; AUDITAI INTERNAL TRAINING GUIDE &nbsp;·&nbsp; APRIL 2026<br>PREPARED FOR DATA SCIENCE TEAM &nbsp;·&nbsp; CONFIDENTIAL — INTERNAL USE ONLY</p>
+</footer>
+
+<script>
+function togglePhase(head){
+  const card=head.closest('.phase-card');
+  const isOpen=card.classList.contains('open');
+  card.closest('.phases-wrap').querySelectorAll('.phase-card').forEach(c=>c.classList.remove('open'));
+  if(!isOpen)card.classList.add('open');
+}
+function goto(id){document.getElementById(id).scrollIntoView({behavior:'smooth'})}
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');obs.unobserve(e.target)}})},{threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+window.addEventListener('scroll',()=>{
+  const y=window.scrollY;
+  const sections=[['overview',0],['npo-section',document.getElementById('npo-section')?.offsetTop||0],['gov-section',document.getElementById('gov-section')?.offsetTop||0],['compare-section',document.getElementById('compare-section')?.offsetTop||0]];
+  let cur='overview';
+  sections.forEach(([id,top])=>{if(y>=top-100)cur=id});
+  document.querySelectorAll('.np').forEach((n,i)=>{
+    const ids=['overview','npo-section','gov-section','compare-section'];
+    n.className='np'+(cur===ids[i]?' active-'+(ids[i].replace('-section','').replace('npo','npo').replace('gov','gov')):'');
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# ── Environment ───────────────────────────────────────────
+.env
+*.env.local
+
+# ── Client data (NEVER commit) ────────────────────────────
+data/
+intake/
+sop/
+*.jsonl
+engagement_labels.csv
+thresholds.yaml
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+site-packages/
+
+# ── Virtual environments ──────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Testing & coverage ────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── IDE ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# ── ML artifacts ──────────────────────────────────────────
+mlruns/
+models/
+checkpoints/
+*.pt
+*.bin
+*.safetensors
+*.gguf
+
+# ── DVC ───────────────────────────────────────────────────
+/data.dvc
+
+# ── Logs ─────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Docker volumes (if mounted locally) ──────────────────
+docker/volumes/
+
+# ── Temporary ────────────────────────────────────────────
+*.tmp
+*.bak
+review_log.csv
+security_review_queue.csv

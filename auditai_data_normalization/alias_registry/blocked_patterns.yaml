@@ -1,0 +1,216 @@
+# alias_registry/blocked_patterns.yaml
+# ======================================
+# Labels that must NEVER become aliases regardless of fuzzy or LLM confidence.
+#
+# Purpose
+# -------
+# These are table artifacts, UI chrome, instructional text, and contextual
+# responses that appear in almost every workpaper but carry no semantic
+# field identity. Mapping any of these to a canonical field would silently
+# corrupt future training pairs.
+#
+# How it is used
+# --------------
+# alias_fuzzy.py checks this file BEFORE proposing any match.
+# alias_suggester.py checks this file BEFORE logging an unknown label.
+# alias_merger.py checks this file BEFORE accepting any pending update.
+# A label that matches any entry here is dropped silently — never queued,
+# never proposed, never merged.
+#
+# How to extend it
+# ----------------
+# Add entries under the correct section. Exact strings are matched after
+# the same normalization applied to incoming labels (lowercase, stripped,
+# whitespace collapsed). Regex patterns are matched against the normalized
+# form. Test new patterns against the evaluation gold set before adding.
+#
+# Who can modify this file
+# ------------------------
+# Changes require a validated merge via alias_merger.py — same flow as
+# field_aliases.yaml. Direct edits are not allowed in production.
+#
+# Last reviewed: 2026-05-14
+# Sourced from:  real label extraction across 7 engagement form workpapers
+#                (NPO-CX-1.1, AD-5001, IIT, IMM, ECE, OCGI, Rwanda variants)
+
+
+# ------------------------------------------------------------------
+# 1. Boolean / option responses
+#    These are answer values, not field labels.
+# ------------------------------------------------------------------
+exact_strings:
+
+  # Standard yes/no/na responses
+  - "yes"
+  - "no"
+  - "n/a"
+  - "na"
+  - "none"
+  - "n.a."
+  - "n.a"
+
+  # Fixed / always responses (seen 33x and 17x in real workpapers)
+  - "fixed"
+  - "always no"
+  - "always yes"
+
+  # Dropdown/select UI artifacts
+  - "yes/no"
+  - "yes / no"
+  - "yes/no/n/a"
+  - "yes/no — py report"
+  - "select one"
+  - "please select"
+  - "dropdown"
+  - "input type"
+
+
+# ------------------------------------------------------------------
+# 2. Table structure chrome
+#    Column headers, row labels, structural markers.
+# ------------------------------------------------------------------
+
+  # Generic column headers
+  - "comments"
+  - "comment"
+  - "notes"
+  - "note"
+  - "description"
+  - "details"
+  - "explanation"
+  - "remarks"
+
+  # Signature / date row labels (the label, not the filled value)
+  - "date"
+  - "signature"
+  - "sign"
+  - "signed"
+  - "initials"
+  - "approved"
+  - "approved by"
+
+  # Generic amount/number column headers
+  - "amount"
+  - "total"
+  - "subtotal"
+  - "sub-total"
+  - "balance"
+  - "value"
+
+  # Single-character column markers
+  - "x"
+  - "y"
+  - "n"
+
+
+# ------------------------------------------------------------------
+# 3. Instructional / narrative text fragments
+#    These appear as paragraph labels or question preambles.
+#    Seen directly in real workpaper extraction.
+# ------------------------------------------------------------------
+
+  - "instructions"
+  - "instruction"
+  - "consider the following:"
+  - "also consider the following:"
+  - "consider whether the client—"
+  - "consider whether there have been—"
+  - "practical consideration:"
+  - "practical considerations:"
+  - "see also question 9 of this checklist."
+
+  # Section headers
+  - "part i"
+  - "part ii"
+  - "part iii"
+  - "section"
+  - "ss"
+
+
+# ------------------------------------------------------------------
+# 4. Question number artifacts
+#    Extracted from numbered checklist rows. These are positional
+#    markers, not semantic labels.
+#    Pattern: "question N" and "qN" covered by regex below,
+#    but explicit entries for variants seen in real workpapers.
+# ------------------------------------------------------------------
+
+  - "question 2"
+  - "question 3"
+  - "question 4"
+  - "question 5"
+  - "question 6"
+  - "question 7"
+  - "question 8"
+  - "question 9"
+  - "question 10"
+  - "question 11"
+  - "question 12"
+  - "question 13"
+  - "question 14"
+  - "question 15"
+  - "question 16"
+  - "q#"
+  - "q3"
+  - "q4"
+  - "part ii — question 1 (standalone)"
+  - "part ii — question 3 (standalone)"
+  - "part ii — question 4 (standalone)"
+
+  # SOP metadata artifacts (from SOP document itself, not workpaper fields)
+  - "sop reference"
+  - "sop-qm-001"
+  - "version"
+  - "1.0"
+
+  # Generic form metadata
+  - "index"
+  - "item"
+  - "ref"
+
+
+# ------------------------------------------------------------------
+# 5. Regex patterns
+#    Applied after normalization (lowercase, stripped, collapsed).
+#    Matches if re.fullmatch(pattern, normalized_label).
+# ------------------------------------------------------------------
+regex_patterns:
+
+  # Single characters
+  - "^.$"
+
+  # Pure numbers (years, amounts, counts)
+  - "^\\d+$"
+
+  # Pure decimal numbers
+  - "^\\d+\\.\\d+$"
+
+  # Dollar amounts
+  - "^\\$[\\d,]+(\\.\\d+)?$"
+
+  # Standalone year (4 digits)
+  - "^\\d{4}$"
+
+  # Question number pattern: "question N" or "q N" or "qN"
+  - "^question\\s+\\d+$"
+  - "^q\\s*\\d+$"
+
+  # Part N patterns: "part i", "part 1", "part ii", etc.
+  - "^part\\s+[ivxlcdm\\d]+$"
+  - "^part\\s+[ivxlcdm\\d]+\\s*[—\\-].*$"
+
+  # Section N patterns
+  - "^section\\s+\\d+$"
+
+  # Standalone date patterns (dates are values, not field labels)
+  - "^\\d{1,2}/\\d{1,2}/\\d{2,4}$"
+  - "^\\d{4}-\\d{2}-\\d{2}$"
+
+  # Strings shorter than 3 characters after normalization
+  - "^.{1,2}$"
+
+  # Strings that are only punctuation or whitespace artifacts
+  - "^[^a-z0-9]+$"
+
+  # "always X" patterns
+  - "^always\\s+\\w+$"

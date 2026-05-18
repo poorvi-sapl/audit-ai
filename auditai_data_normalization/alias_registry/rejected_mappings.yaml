@@ -1,0 +1,71 @@
+# alias_registry/rejected_mappings.yaml
+# =======================================
+# Permanent memory of rejected label → canonical_field proposals.
+#
+# Purpose
+# -------
+# When a reviewer rejects a mapping, that exact (label, canonical_field)
+# pair is recorded here permanently. alias_fuzzy.py and alias_suggester.py
+# check this file before proposing any mapping — a rejected pair is never
+# re-proposed regardless of how high the confidence score is.
+#
+# This is append-only. Entries are never deleted.
+# Corrections go via a new approval, not by removing a rejection.
+#
+# Schema (per entry)
+# ------------------
+# raw_label         str   — normalized label as it appeared in the document
+# rejected_canonical str  — the canonical field that was incorrectly proposed
+# rejected_by       str   — reviewer ID
+# rejection_reason  str   — one of: wrong_field | ambiguous | not_a_field |
+#                           needs_context | duplicate | other
+# notes             str   — optional free-text explanation
+# timestamp         str   — ISO 8601 UTC
+# source_workpaper  str   — filename where this label was originally seen
+# proposed_by       str   — one of: fuzzy | llm | human
+# proposed_score    float — confidence score at time of rejection (0.0 if n/a)
+#
+# Rejection reasons
+# -----------------
+# wrong_field     — label maps to a different canonical field entirely
+# ambiguous       — label could mean multiple fields; needs context to resolve
+# not_a_field     — label is a UI artifact, instruction, or noise (should be
+#                   added to blocked_patterns.yaml instead)
+# needs_context   — label is valid but requires neighboring cell context
+#                   (will be added to ambiguous_labels.yaml instead)
+# duplicate       — alias already exists under a different spelling
+# other           — explain in notes
+#
+# How alias_fuzzy.py uses this
+# ----------------------------
+# Before returning any match, fuzzy checks:
+#   (normalized_label, proposed_canonical) in rejected_mappings
+# If found → suppress proposal, route label to manual_review bucket.
+# The reviewer sees a note: "Previously rejected: <reason>"
+#
+# How alias_suggester.py uses this
+# ---------------------------------
+# reject() appends here in addition to updating the review CSV.
+# log_unknown() skips LLM suggestion if label appears here with any entry.
+#
+# Versioning
+# ----------
+# This file is included in every alias system snapshot.
+# The delta (new rejections since last version) is recorded in the changelog.
+
+
+# No entries yet — populated at runtime by alias_suggester.reject()
+# Example entry shape (do not uncomment — for reference only):
+#
+# rejections:
+#   - raw_label: "prepared date"
+#     rejected_canonical: "client_name"
+#     rejected_by: "sharshwal"
+#     rejection_reason: "wrong_field"
+#     notes: "This is preparation_date, not client_name"
+#     timestamp: "2026-05-14T10:00:00+00:00"
+#     source_workpaper: "IMM NPO CX 1 1 Engagement Accept and Cont Form.docx"
+#     proposed_by: "fuzzy"
+#     proposed_score: 0.81
+
+rejections: []

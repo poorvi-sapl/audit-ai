@@ -1,0 +1,262 @@
+# config/field_tiers.yaml
+# ========================
+# Field importance tiers for weighted confidence scoring.
+#
+# Purpose
+# -------
+# Replaces flat confidence scoring (all fields equal weight) with
+# tier-based scoring that reflects real audit criticality.
+#
+# How tiers affect confidence scoring (Phase A2)
+# -----------------------------------------------
+# Tier 1 fields found → confidence floor of 0.65 regardless of Tier 2/3 misses
+# Tier 1 + Tier 2 fields found → confidence floor of 0.75
+# Missing Tier 3 fields → zero penalty (informational only)
+# Missing Tier 2 fields → small penalty (-0.05 per field, max -0.15)
+# Missing Tier 1 fields → significant penalty (-0.15 per field, max -0.45)
+#
+# Tier definitions
+# ----------------
+# Tier 1 — CRITICAL
+#   Fields that define what the engagement is and who authorized it.
+#   Missing any of these is a documentation deficiency that must be flagged.
+#   These are the fields auditors sign off on. Without them the workpaper
+#   is incomplete by professional standards.
+#
+# Tier 2 — IMPORTANT
+#   Fields that provide audit context and scope. Missing these weakens
+#   the workpaper but doesn't make it unusable. Should be flagged but
+#   does not block training pair generation.
+#
+# Tier 3 — INFORMATIONAL
+#   Financial data, structural labels, metadata. Useful for completeness
+#   and for financial statement workpapers, but missing them from an
+#   engagement form is expected and should not reduce confidence.
+#
+# Review instructions for audit team
+# ------------------------------------
+# 1. Review every Tier 1 field — these directly control confidence floors
+# 2. Check Tier 2 for any fields that should be promoted to Tier 1
+# 3. Tier 3 can be expanded freely — no impact on confidence scoring
+# 4. Add new fields discovered from real workpapers to the correct tier
+# 5. Sign off before Phase A2 implementation begins
+#
+# Last updated: draft — pending audit team review
+# Reviewed by:  (to be filled in)
+# Approved by:  (to be filled in)
+
+
+# ===========================================================================
+# TIER 1 — CRITICAL
+# These fields define the engagement identity and authorization.
+# Confidence floor: 0.65 if any Tier 1 found, penalty if any Tier 1 missing.
+# ===========================================================================
+
+tier1:
+
+  # Who is the client — fundamental to any workpaper
+  - field: client_name
+    reason: >
+      Every workpaper must identify the client. Missing client_name means
+      the workpaper cannot be linked to an engagement. Tier 1 across all
+      workpaper types.
+
+  # When does the engagement cover — defines the audit period
+  - field: fiscal_year_end
+    reason: >
+      The period under audit. Missing this makes the workpaper undated
+      and unusable for engagement planning and continuance decisions.
+
+  # Did we decide to accept or continue — the core purpose of the engagement form
+  - field: engagement_decision
+    reason: >
+      The acceptance/continuance conclusion is the primary output of the
+      NPO-CX-1.1 form. Missing this means the form's purpose was not
+      completed. Required by SOP §2.1.
+
+  # Who authorized the engagement — independence and authorization requirement
+  - field: engagement_partner
+    reason: >
+      The engagement partner's name or sign-off authorizes the engagement.
+      Missing this is a professional standards deficiency (ET 1.110.010,
+      SOP §2.4). Required for GAAS, GAGAS, and Single Audit engagements.
+
+  # What type of audit — determines which standards apply
+  - field: audit_type
+    reason: >
+      Determines which auditing standards govern the engagement (GAAS,
+      GAGAS, Single Audit). Missing this means compliance requirements
+      cannot be assessed. Critical for training pair generation.
+
+  # Is this a GAGAS engagement — determines Yellow Book requirements
+  - field: includes_gagas
+    reason: >
+      GAGAS engagements have additional independence, CPE, and reporting
+      requirements. Missing this flag means the AI cannot correctly
+      classify the engagement or cite the right standards.
+
+  # Is this a Single Audit — determines Uniform Guidance requirements
+  - field: includes_single_audit
+    reason: >
+      Single Audits under 2 CFR 200 have distinct compliance requirements.
+      Missing this flag causes incorrect engagement type classification
+      in training pairs.
+
+  # Financial reporting framework — accounting standards
+  - field: reporting_framework
+    reason: >
+      GAAP vs GASB vs special purpose framework affects the audit approach.
+      Important for context but usually determinable from client_type.
+
+
+# ===========================================================================
+# TIER 2 — IMPORTANT
+# These fields provide audit context and scope.
+# Small confidence penalty if missing. Should be flagged but not blocking.
+# ===========================================================================
+
+tier2:
+
+  # Workpaper reference number — filing and indexing
+  - field: document_reference
+    reason: >
+      Links the workpaper to the engagement file. Important for
+      completeness but its absence doesn't affect the audit conclusion.
+
+  # GAAS audit included — scope completeness
+  - field: includes_gaas_audit
+    reason: >
+      Confirms financial statement audit scope. Usually implied by the
+      form type but explicit confirmation is better. Tier 2 because
+      audit_type (Tier 1) captures this at a higher level.
+
+  # Grant compliance audit included — scope completeness
+  - field: includes_grant_compliance
+    reason: >
+      Required for organizations receiving federal grants. Important for
+      Single Audit classification but covered partially by includes_single_audit.
+
+  # Date workpaper was prepared — timeliness documentation
+  - field: preparation_date
+    reason: >
+      Documents when the form was completed. Important for engagement
+      timeline but not critical for the audit conclusion itself.
+
+  # Date partner signed — authorization timestamp
+  - field: partner_sign_date
+    reason: >
+      When the partner authorized the engagement. Important for
+      independence dating but subordinate to engagement_partner (Tier 1).
+
+  # EIN — identity verification
+  - field: ein
+    reason: >
+      Federal tax ID confirms entity identity. Important but not always
+      on engagement forms. Tier 2 because client_name (Tier 1) is the
+      primary identity field.
+
+  # Non-attest services — independence considerations
+  - field: includes_nonattest_services
+    reason: >
+      Affects independence assessment under ET 1.295. Important for
+      NPO engagements but often not on the acceptance form itself.
+
+
+# ===========================================================================
+# TIER 3 — INFORMATIONAL
+# Financial data, structural labels, metadata.
+# Zero confidence penalty. Useful for financial statement workpapers.
+# ===========================================================================
+
+tier3:
+
+  # --- Financial statement identity ---
+  - field: document_title
+  - field: engagement_code
+  - field: fiscal_year
+  - field: financial_statement_use
+  - field: report_date
+
+  # --- Client context ---
+  - field: client_type
+  - field: client_address
+  - field: predecessor_auditor
+
+  # --- Balance sheet — assets ---
+  - field: total_assets
+  - field: total_current_assets
+  - field: total_noncurrent_assets
+  - field: cash_and_investments
+  - field: accounts_receivable
+  - field: prepaid_expenses
+  - field: security_deposits
+  - field: intangible_assets
+  - field: right_of_use_assets
+
+  # --- Balance sheet — liabilities and net assets ---
+  - field: total_liabilities
+  - field: total_current_liabilities
+  - field: total_noncurrent_liabilities
+  - field: accounts_payable
+  - field: accrued_liabilities
+  - field: operating_lease_liabilities
+  - field: long_term_loan
+  - field: net_assets
+  - field: net_assets_with_restrictions
+
+  # --- Income statement ---
+  - field: total_revenue
+  - field: total_expenses
+  - field: service_revenue
+  - field: grant_revenue
+  - field: program_expenses
+  - field: management_general_expenses
+  - field: salaries_wages
+  - field: fringe_benefits
+  - field: professional_fees
+  - field: net_income
+
+  # --- Cash flow ---
+  - field: net_cash_operating
+  - field: net_cash_investing
+  - field: net_cash_financing
+  - field: cash_beginning_of_year
+  - field: cash_end_of_year
+
+  # --- Excel / tabular structure ---
+  - field: account_code
+  - field: account_name
+  - field: amount
+  - field: debit
+  - field: credit
+  - field: transaction_date
+  - field: row_type
+  - field: sheet_name
+
+  # --- Extraction metadata ---
+  - field: source_year
+  - field: extraction_method
+  - field: confidence_score
+
+
+# ===========================================================================
+# Scoring formula (to be implemented in confidence.py — Phase A2)
+# ===========================================================================
+#
+# tier1_found    = number of Tier 1 fields successfully extracted
+# tier1_total    = total Tier 1 fields (7)
+# tier2_found    = number of Tier 2 fields successfully extracted
+# tier2_total    = total Tier 2 fields (11)
+#
+# base_score = (tier1_found / tier1_total) * 0.70
+#            + (tier2_found / tier2_total) * 0.30
+#
+# Floors:
+#   if tier1_found >= 3: score = max(score, 0.60)
+#   if tier1_found >= 5: score = max(score, 0.70)
+#   if tier1_found == 7: score = max(score, 0.80)
+#
+# Tier 3 fields: zero weight, zero penalty
+# Never divide by total_fields (old approach) — only tier1 + tier2 matter
+#
+# ===========================================================================

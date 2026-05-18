@@ -1,0 +1,60 @@
+# alias_registry/pending_alias_updates.yaml
+# ===========================================
+# Staging area for approved alias mappings waiting for validated merge.
+#
+# Purpose
+# -------
+# alias_suggester.approve() writes here instead of directly to
+# field_aliases.yaml. alias_merger.py reads this file, validates each
+# entry against blocked_patterns, rejected_mappings, gold labels, and
+# the current alias file, then merges clean entries into field_aliases.yaml
+# and writes a versioned snapshot + changelog entry.
+#
+# This indirection prevents alias poisoning — no mapping reaches
+# field_aliases.yaml without passing the validation gate.
+#
+# Schema (per entry)
+# ------------------
+# raw_label         str   — label as it appeared in the document
+# canonical_field   str   — approved target canonical field
+# reviewer_id       str   — who approved this mapping
+# approval_type     str   — one of: human | fuzzy_auto | llm_auto
+# confidence        obj   — {score: float, source: str, method_weight: float}
+# source_workpaper  str   — filename where this label was first seen
+# timestamp         str   — ISO 8601 UTC when approval was recorded
+# notes             str   — optional reviewer notes
+# status            str   — one of: pending | merged | rejected_at_merge
+#
+# Lifecycle
+# ---------
+# approve() writes entry with status: pending
+# alias_merger.merge_pending() processes all pending entries:
+#   - pass  → status set to merged, entry written to field_aliases.yaml
+#   - fail  → status set to rejected_at_merge, reason added to entry
+# After merge, merged entries are archived to changelog, not deleted here.
+# This file only holds unprocessed pending entries during normal operation.
+#
+# Versioning
+# ----------
+# Contents at merge time are recorded in the changelog delta.
+# This file is NOT included in snapshots — it is transient state.
+
+
+# Populated at runtime by alias_suggester.approve()
+# Example entry shape (do not uncomment — for reference only):
+#
+# pending:
+#   - raw_label: "organization name"
+#     canonical_field: "client_name"
+#     reviewer_id: "sharshwal"
+#     approval_type: "human"
+#     confidence:
+#       score: 0.95
+#       source: "fuzzy"
+#       method_weight: 0.80
+#     source_workpaper: "IMM NPO CX 1 1 Engagement Accept and Cont Form.docx"
+#     timestamp: "2026-05-14T10:00:00+00:00"
+#     notes: ""
+#     status: "pending"
+
+pending: []

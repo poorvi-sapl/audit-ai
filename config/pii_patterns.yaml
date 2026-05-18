@@ -1,0 +1,47 @@
+# US PII patterns for Presidio custom recognizers.
+# HCLLP is a US-only firm. No Indian client patterns.
+# Source: docs/architecture/04_etl_pipeline.md § Step 2 PIIScrubber
+
+us:
+  - name: EIN
+    pattern: '\b\d{2}-\d{7}\b'
+    replacement: "[EIN]"
+    score: 0.85
+
+  - name: SSN
+    pattern: '\b\d{3}-\d{2}-\d{4}\b'
+    replacement: "[SSN]"
+    score: 0.95
+
+  - name: ITIN
+    pattern: '\b9\d{2}-\d{2}-\d{4}\b'
+    replacement: "[ITIN]"
+    score: 0.90
+
+  - name: CLIENT_ENTITY
+    # Presidio ORG recognizer handles NER; this regex catches common legal suffixes
+    pattern: '\b[A-Z][a-z]+ (Inc\.|LLC|Corp\.|County|City of|Township of|District of)\b'
+    replacement: "[CLIENT_ENTITY]"
+    score: 0.70
+
+  - name: ACCOUNT_NUM
+    # 8–17 digit strings in banking context (check surrounding text for banking keywords)
+    pattern: '\b\d{8,17}\b'
+    replacement: "[ACCOUNT_NUM]"
+    score: 0.60
+    context_keywords: ["account", "acct", "routing", "checking", "savings", "deposit"]
+
+  - name: ROUTING_NUM
+    pattern: '\b\d{9}\b'
+    replacement: "[ROUTING_NUM]"
+    score: 0.65
+    context_keywords: ["routing", "aba", "transit", "wire"]
+
+presidio_entities:
+  # Presidio built-in recognizers to enable
+  - PERSON
+  - LOCATION
+  - DATE_TIME
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+  - URL

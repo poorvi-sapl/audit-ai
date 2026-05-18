@@ -1,0 +1,73 @@
+"""
+raw_to_training_pair/router.py
+================================
+Phase 2 router — thin wrapper around the shared router engine.
+
+Callers within raw_to_training_pair import from here, never directly
+from auditai_data_normalization.router. This keeps Phase 2 insulated
+from Phase 1 internals — if the shared router API ever changes, only
+this file needs updating.
+
+Public API
+----------
+    route(file_path) -> RouteResult
+        Detect file type using the phase2 table in config/routing.yaml.
+        Returns a RouteResult with the Phase 2 extractor path.
+
+    RouteResult
+        Re-exported here so Phase 2 callers have a single import point.
+
+Usage
+-----
+    from raw_to_training_pair.router import route, RouteResult
+
+    result = route("/path/to/workpaper.xlsx")
+
+    if result.should_skip:
+        logger.info("Skipping %s", path)
+        return
+
+    # Caller does the import and invocation — router is detector only
+    module_path, func_name = result.extractor.rsplit(".", 1)
+    extractor = importlib.import_module(module_path)
+    raw = getattr(extractor, func_name)(path)
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+# Re-export RouteResult so Phase 2 callers have one import point
+from auditai_data_normalization.router import RouteResult
+from auditai_data_normalization.router import route as _shared_route
+
+
+def route(file_path: str | Path) -> RouteResult:
+    """
+    Detect file type and return Phase 2 routing info.
+
+    Delegates entirely to the shared router engine using phase="phase2".
+    No detection logic lives here.
+
+    Parameters
+    ----------
+    file_path : str | Path
+        Path to the file to route. Must exist.
+
+    Returns
+    -------
+    RouteResult
+        .file_type       — canonical type (docx, pdf_text, xlsx, etc.)
+        .extractor       — full path to Phase 2 extract() function
+        .should_skip     — True for index files / unsupported formats
+        .detection_method — how type was determined
+        .phase           — always 'phase2'
+
+    Raises
+    ------
+    FileNotFoundError
+        If file_path does not exist.
+    ValueError
+        If file type is not in routing.yaml phase2 table.
+    """
+    return _shared_route(file_path, phase="phase2")

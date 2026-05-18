@@ -1,0 +1,110 @@
+# raw_to_training_pair/field_descriptions.yaml
+# ==============================================
+# Natural language descriptions of canonical fields.
+# Used by claim_mapper._anchor_layer_b() for semantic fallback anchoring
+# when alias matching (Layer A) fails to anchor a finding sentence.
+#
+# Format
+# ------
+# field_name: "Description in plain audit language, 15-25 words."
+#
+# Purpose
+# -------
+# Layer B computes cosine similarity between a finding sentence embedding
+# and each field description embedding. If similarity exceeds
+# threshold_config.grounding.semantic_fallback_threshold, the finding
+# is soft-anchored to that field rather than marked HALLUCINATED.
+#
+# Writing guidelines
+# ------------------
+# - Use language an auditor would use when describing the field
+# - Include synonyms and common paraphrases naturally
+# - Tier 1 and Tier 2 fields only — Tier 3 financial line items
+#   are not expected to appear in engagement form findings
+# - Keep descriptions factual and specific — vague descriptions
+#   increase false-positive anchoring
+#
+# Last reviewed: 2026-05-14
+
+
+# ---------------------------------------------------------------------------
+# Tier 1 — Critical engagement fields
+# ---------------------------------------------------------------------------
+
+client_name: >
+  The legal name of the client entity or organization being audited,
+  also referred to as organization name, entity name, or auditee name.
+
+fiscal_year_end: >
+  The date marking the end of the client's fiscal or financial reporting period,
+  also called the balance sheet date, year end, or statement of financial position date.
+
+engagement_decision: >
+  The formal accept or decline decision on whether the firm will take on
+  or continue the audit engagement with this client.
+
+engagement_partner: >
+  The licensed CPA or audit partner responsible for signing off on and
+  overseeing the engagement, also called the responsible auditor or signing partner.
+
+audit_type: >
+  The type or category of audit engagement being performed, such as financial
+  statement audit, compliance audit, agreed-upon procedures, or review.
+
+includes_gagas: >
+  Whether the audit is conducted under Government Auditing Standards, also known
+  as GAGAS, the Yellow Book, or generally accepted government auditing standards.
+
+includes_single_audit: >
+  Whether the engagement includes a Single Audit under the Uniform Guidance,
+  required for entities expending federal awards above the threshold.
+
+reporting_framework: >
+  The accounting and financial reporting standards under which the financial
+  statements are prepared, such as GAAP, GASB, FASB, or cash basis.
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 — Important engagement fields
+# ---------------------------------------------------------------------------
+
+document_reference: >
+  The workpaper identifier, form number, or reference code used to track
+  this document within the engagement file or audit binder.
+
+includes_gaas_audit: >
+  Whether the audit includes procedures conducted under Generally Accepted
+  Auditing Standards issued by the AICPA.
+
+includes_grant_compliance: >
+  Whether the engagement includes testing for compliance with grant requirements,
+  federal program regulations, or specific funding restrictions.
+
+preparation_date: >
+  The date the workpaper or engagement form was prepared or completed
+  by the staff member, also called prepared date or completion date.
+
+partner_sign_date: >
+  The date the engagement partner reviewed and signed off on the workpaper
+  or engagement acceptance decision, also called approved date or review date.
+
+ein: >
+  The Employer Identification Number or Federal Tax ID number assigned to
+  the client entity by the IRS, also called FEIN or tax identification number.
+
+includes_nonattest_services: >
+  Whether the firm performs non-audit or non-attest services for this client
+  such as bookkeeping, tax preparation, or consulting alongside the audit.
+
+
+# ---------------------------------------------------------------------------
+# Additional fields referenced in findings (not in tiers but common)
+# ---------------------------------------------------------------------------
+
+preparer_id: >
+  The name, initials, or staff identifier of the person who prepared
+  or completed the engagement workpaper or form.
+
+reviewer_id: >
+  The name or initials of the person who reviewed or supervised
+  the completion of the engagement workpaper.
