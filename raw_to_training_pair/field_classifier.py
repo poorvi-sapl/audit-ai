@@ -74,6 +74,10 @@ class FieldClassification:
     absent_fields:    list[str]        # convenience — fields classified "absent"
     present_fields:   list[str]        # convenience — fields classified "present"
     uncertain_fields: list[str]        # convenience — fields classified "uncertain"
+    unknown_keys:     list[str] = field(default_factory=list)  # keys not in canonical_fields (drift alarm feed)
+    derived_fields:   dict[str, dict] = field(default_factory=dict)  # field → {observed, effective, source, authority}
+    raw_output:       str = ""         # raw text returned by the model (for debug bundles)
+    prompt_text:      str = ""         # prompt sent to the model (for debug bundles)
 
 
 # ---------------------------------------------------------------------------
@@ -269,29 +273,35 @@ def classify(
             return None
         if extra_keys:
             logger.warning(
-                "field_classifier: unexpected keys in output (pruned): %s",
+                "field_classifier: unknown_field_detected — keys not in canonical registry: %s "
+                "(alias registry drifted or schema built from stale field list)",
                 extra_keys,
             )
-            for k in extra_keys:
-                del states[k]
+            # Do NOT prune here — preserve in unknown_keys for drift_count in
+            # validate_classification(). Pruned from field_states below via canonical filter.
 
-        # Partition into convenience lists
+        # Partition into convenience lists (canonical keys only)
         absent   = [f for f in canonical_fields if states.get(f) == "absent"]
         present  = [f for f in canonical_fields if states.get(f) == "present"]
         uncertain = [f for f in canonical_fields if states.get(f) == "uncertain"]
 
         logger.info(
-            "field_classifier: %s — absent=%d present=%d uncertain=%d",
+            "field_classifier: %s — absent=%d present=%d uncertain=%d drift=%d",
             client_type or "unknown", len(absent), len(present), len(uncertain),
+            len(extra_keys),
         )
 
+        raw_str = raw if isinstance(raw, str) else json.dumps(raw, default=str)
         return FieldClassification(
-            field_states     = {f: states[f] for f in canonical_fields},
+            field_states     = {f: states[f] for f in canonical_fields},  # canonical only
             canonical_fields = list(canonical_fields),
             model            = _MODEL,
             absent_fields    = absent,
             present_fields   = present,
             uncertain_fields = uncertain,
+            unknown_keys     = extra_keys,
+            raw_output       = raw_str,
+            prompt_text      = prompt,
         )
 
     except Exception as e:

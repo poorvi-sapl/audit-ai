@@ -208,6 +208,8 @@ def _process_single_variant_r7(
     deficiency_fields: list[str],
     queue_path: Path,
     data_dir: Path,
+    sop_id: str = "npo-cx-1.1",
+    debug_dir: Path | None = None,
 ) -> tuple[bool, str]:
     """
     R7 variant of _process_single_variant.
@@ -226,10 +228,111 @@ def _process_single_variant_r7(
     if not workpaper_text.strip():
         return False, "cleaned_text is empty — cannot classify"
 
+    # Mutable state collected for the debug bundle (populated as each step runs).
+    _dbg: dict = {
+        "classification": None,
+        "validated":      None,
+        "signals":        None,
+        "render_result":  None,
+        "pair":           None,
+    }
+
+    def _fail(reason: str) -> tuple[bool, str]:
+        """Return (False, reason) and write a debug bundle if debug_dir is set."""
+        if debug_dir is not None:
+            from pipeline.debug_bundle import write_bundle as _write_bundle
+            _stem  = Path(record.file_name).stem[:40].replace(" ", "_")
+            _label = f"{_stem}__{client_type}__{pair_type}"
+            _write_bundle(
+                debug_dir        = debug_dir,
+                label            = _label,
+                failure_reason   = reason,
+                classification   = _dbg["classification"],
+                validated        = _dbg["validated"],
+                signals          = _dbg["signals"],
+                render_result    = _dbg["render_result"],
+                pair             = _dbg["pair"],
+                review_confidence = record.review_confidence,
+                quality_gate     = record.quality_gate,
+            )
+        return False, reason
+
     # Pass 1: constrained field classification
     classification = field_classifier.classify(workpaper_text, client_type=client_type)
     if classification is None:
-        return False, "field_classifier.classify() returned None (Ollama unavailable?)"
+        return _fail("field_classifier.classify() returned None (Ollama unavailable?)")
+    _dbg["classification"] = classification
+
+    # Reconcile with Phase 1 extraction results.
+    # The classifier reads cleaned_text (PII-scrubbed), so redacted field values
+    # (e.g. engagement_partner: [REDACTED]) cause uncertain calls on fields Phase 1
+    # already confirmed. Phase 1 used multiple extractors on pre-scrub text and is
+    # authoritative. Override here so PII redaction never triggers the Tier 1 hard block.
+    _phase1_present = set(
+        record.metadata.get("confidence_summary", {}).get("fields_present", [])
+    )
+    _phase1_missing = set(
+        record.metadata.get("confidence_summary", {}).get("fields_missing", [])
+    )
+    # Phase 1 "missing" overrides are only reliable when Phase 1 extraction
+    # was high-confidence (>= 0.70). Below that threshold, Phase 1 likely
+    # missed fields due to layout issues (docx tables, checkbox forms) rather
+    # than confirming true absence. Let the classifier's judgment stand in
+    # those cases — the critical-fields tiebreaker in normalize.py will have
+    # already corrected the fields it could find.
+    _phase1_reliable = record.extraction_confidence >= 0.70
+
+    if _phase1_present or _phase1_missing:
+        _reconciled = dict(classification.field_states)
+        _deficiency_set = set(deficiency_fields)
+        for _f in classification.canonical_fields:
+            if _f in _deficiency_set:
+                # Deficiency label flip must not be overridden by Phase 1.
+                # Phase 1 ran on pre-scrub text and would re-mark the field
+                # "present" — but we need it "absent" for counterfactual training.
+                continue
+            if _f in _phase1_present:
+                _reconciled[_f] = "present"
+            elif _f in _phase1_missing and _phase1_reliable:
+                # Only force absent when Phase 1 was high-confidence overall.
+                # Borderline confidence means Phase 1 missed fields due to layout
+                # issues — don't propagate those misses into the classifier.
+                _reconciled[_f] = "absent"
+        classification = FieldClassification(
+            field_states     = _reconciled,
+            canonical_fields = classification.canonical_fields,
+            model            = classification.model,
+            absent_fields    = [f for f, s in _reconciled.items() if s == "absent"],
+            present_fields   = [f for f, s in _reconciled.items() if s == "present"],
+            uncertain_fields = [f for f, s in _reconciled.items() if s == "uncertain"],
+            unknown_keys     = classification.unknown_keys,
+            raw_output       = classification.raw_output,
+            prompt_text      = classification.prompt_text,
+        )
+        _dbg["classification"] = classification
+
+    # Derived-field annotation: compute logical implications of explicit fields.
+    # field_states is NEVER mutated here — derivation is recorded as annotation only.
+    # resolve_effective_states() merges observed + effective immediately before Pass 2.
+    from pipeline.derived_fields import (
+        apply_derivations      as _apply_derivations,
+        resolve_effective_states as _resolve_effective_states,
+    )
+    _, _derived_map = _apply_derivations(classification.field_states)
+    if _derived_map:
+        classification = FieldClassification(
+            field_states     = classification.field_states,   # observed — unchanged
+            canonical_fields = classification.canonical_fields,
+            model            = classification.model,
+            absent_fields    = classification.absent_fields,
+            present_fields   = classification.present_fields,
+            uncertain_fields = classification.uncertain_fields,
+            unknown_keys     = classification.unknown_keys,
+            derived_fields   = _derived_map,
+            raw_output       = classification.raw_output,
+            prompt_text      = classification.prompt_text,
+        )
+        _dbg["classification"] = classification
 
     # For deficient pairs: force the designated fields to "absent" before Pass 2.
     # This teaches the model to flag those fields as findings even when the
@@ -239,19 +342,51 @@ def _process_single_variant_r7(
         for f in deficiency_fields:
             if f in overridden:
                 overridden[f] = "absent"
+        # Derived fields forced absent by the deficiency sampler are no longer
+        # logically implied — remove their derivation annotation so
+        # resolve_effective_states() doesn't re-elevate them to "present".
+        _deficiency_set = set(deficiency_fields)
+        _pruned_derived = {
+            k: v for k, v in classification.derived_fields.items()
+            if k not in _deficiency_set
+        }
         classification = FieldClassification(
-            field_states=overridden,
-            canonical_fields=classification.canonical_fields,
-            model=classification.model,
-            absent_fields=[f for f, s in overridden.items() if s == "absent"],
-            present_fields=[f for f, s in overridden.items() if s == "present"],
-            uncertain_fields=[f for f, s in overridden.items() if s == "uncertain"],
+            field_states     = overridden,
+            canonical_fields = classification.canonical_fields,
+            model            = classification.model,
+            absent_fields    = [f for f, s in overridden.items() if s == "absent"],
+            present_fields   = [f for f, s in overridden.items() if s == "present"],
+            uncertain_fields = [f for f, s in overridden.items() if s == "uncertain"],
+            derived_fields   = _pruned_derived,
+            raw_output       = classification.raw_output,
+            prompt_text      = classification.prompt_text,
         )
 
-    # Pass 2: validate classification (keyword + embedding + Llama spot-check)
+    # Pass 2: resolve effective states at the boundary, then validate.
+    # field_states carries observed values; derived_fields carries effective overrides.
+    # This is the single merge point — nowhere else reads derived_fields as truth.
+    _eff_states = _resolve_effective_states(classification.field_states, classification.derived_fields)
+    if _eff_states is not classification.field_states:
+        _pass2_cls = FieldClassification(
+            field_states     = _eff_states,
+            canonical_fields = classification.canonical_fields,
+            model            = classification.model,
+            absent_fields    = [f for f, s in _eff_states.items() if s == "absent"],
+            present_fields   = [f for f, s in _eff_states.items() if s == "present"],
+            uncertain_fields = [f for f, s in _eff_states.items() if s == "uncertain"],
+            unknown_keys     = classification.unknown_keys,
+            derived_fields   = classification.derived_fields,
+            raw_output       = classification.raw_output,
+            prompt_text      = classification.prompt_text,
+        )
+    else:
+        _pass2_cls = classification
+
     validated, signals = claim_mapper.validate_classification(
-        classification, workpaper_text, client_type
+        _pass2_cls, workpaper_text, client_type
     )
+    _dbg["validated"] = validated
+    _dbg["signals"]   = signals
 
     # Build compile-time SOP mapping table (cached per client_type)
     sop_table = completion_renderer.build_sop_mapping_table(client_type)
@@ -266,6 +401,7 @@ def _process_single_variant_r7(
         has_single_audit=has_single_audit,
         mapping_version=mapping_version,
     )
+    _dbg["render_result"] = render_result
 
     # Score and set review gate on the record
     completion_drafter.set_review_gate_r7(
@@ -277,6 +413,23 @@ def _process_single_variant_r7(
         sop_sections=retrieval.sop_sections,
     )
 
+    # For deficient pairs: redact evidence lines before assembling user message.
+    # Removing text spans that support a field's presence means the label flip
+    # accurately reflects what the model sees — no contradiction learning.
+    redaction_result = None
+    if pair_type == "deficient" and deficiency_fields:
+        from pipeline.evidence_redactor import redact_fields as _redact_fields
+        redaction_result = _redact_fields(workpaper_text, deficiency_fields)
+        text_for_user = redaction_result.redacted_text
+        if not redaction_result.fully_redacted:
+            logger.warning(
+                "pipeline: partial redaction for %s/%s — failed fields: %s. "
+                "Pair flagged for hard gate (Step 3).",
+                client_type, record.file_name, redaction_result.failed_fields,
+            )
+    else:
+        text_for_user = workpaper_text
+
     # Assemble training pair dict
     user_lines = [
         f"Client Type: {client_type}",
@@ -284,21 +437,22 @@ def _process_single_variant_r7(
         f"Single Audit: {'Yes' if has_single_audit else 'No'}",
         "",
     ]
-    if pair_type == "deficient" and deficiency_fields:
-        user_lines.append(
-            f"[TRAINING NOTE — The following fields are absent from this workpaper: "
-            f"{', '.join(deficiency_fields)}]"
-        )
-        user_lines.append("")
-    user_lines.append(workpaper_text)
+    user_lines.append(text_for_user)
     user_content = "\n".join(user_lines)
 
-    stage = "stage2" if record.review_confidence >= 0.70 else "stage1"
+    stage = "stage2"
 
     pair_hash = hashlib.sha256(
         f"{record.file_hash}|{client_type}|{pair_type}|r7|"
         f"{','.join(sorted(deficiency_fields))}".encode()
     ).hexdigest()
+
+    _sop_graph_version = ""
+    try:
+        from pipeline.sop_compiler import compiled_sop as _compiled_sop
+        _sop_graph_version = _compiled_sop(sop_id).graph_version
+    except Exception:
+        pass
 
     pair = {
         "messages": [
@@ -313,6 +467,7 @@ def _process_single_variant_r7(
             "is_gagas":              is_gagas,
             "has_single_audit":      has_single_audit,
             "extraction_confidence": record.extraction_confidence,
+            "extraction_gate":       record.extraction_confidence >= 0.50,
             "review_confidence":     record.review_confidence,
             "quality_gate":          record.quality_gate,
             "auditor_approved":      False,
@@ -327,8 +482,25 @@ def _process_single_variant_r7(
             "file_hash":             record.file_hash,
             "pair_hash":             pair_hash,
             "r7":                    True,
+            "sop_id":                sop_id,
             "sop_mapping_version":   render_result.sop_mapping_version,
+            "sop_graph_version":     _sop_graph_version,
             "provisional_fields":    render_result.provisional_fields,
+            "derived_fields":        classification.derived_fields,
+            "evidence_redaction": {
+                "applied":         redaction_result is not None,
+                "fully_redacted":  redaction_result.fully_redacted if redaction_result else None,
+                "failed_fields":   redaction_result.failed_fields if redaction_result else [],
+                "field_results": [
+                    {
+                        "field":            r.field,
+                        "redacted":         r.redacted,
+                        "matched_aliases":  r.matched_aliases,
+                        "lines_removed":    len(r.removed_lines),
+                    }
+                    for r in redaction_result.field_results
+                ] if redaction_result else [],
+            },
             "classification_signals": {
                 "uncertain_rate":         signals.uncertain_rate,
                 "uncertain_count":        signals.uncertain_count,
@@ -342,17 +514,29 @@ def _process_single_variant_r7(
             },
         },
     }
+    _dbg["pair"] = pair
+
+    # Hard gate (Step 3): reject contradictory pairs before they reach the queue.
+    # A pair that fails this gate is silently dropped — it must not be trained on.
+    from pipeline.hard_gate import check_pair as _hard_gate_check
+    hg = _hard_gate_check(pair)
+    if not hg.passed:
+        logger.warning(
+            "pipeline: HARD GATE blocked %s pair | client=%s gate=%s reason=%s",
+            pair_type, client_type, hg.gate, hg.reason,
+        )
+        return _fail(f"hard_gate={hg.gate}: {hg.reason}")
 
     # Determine output path and run quality gate
     try:
         output_path = get_output_path(stage, data_dir)
     except ValueError as e:
-        return False, str(e)
+        return _fail(str(e))
 
     gate_result = check(pair, output_path)
     if not gate_result.passed:
         enqueue(pair, queue_path)
-        return False, f"gate={gate_result.failed_gate}: {gate_result.reason}"
+        return _fail(f"gate={gate_result.failed_gate}: {gate_result.reason}")
 
     enqueue(pair, queue_path)
 
@@ -373,12 +557,14 @@ def _process_single_variant_r7(
 def process_workpaper(
     file_path: str | Path,
     sop_version: str = "latest",
+    sop_id: str = "npo-cx-1.1",
     client_types: list[str] | None = None,
     queue_path: str | Path | None = None,
     data_dir: str | Path | None = None,
     run_parallel: bool = True,
     use_mock: bool = False,
-    use_r7: bool = False,
+    use_r7: bool = True,
+    debug_dir: Path | None = None,
 ) -> PipelineResult:
     """
     Process one workpaper file through the full AuditAI pipeline.
@@ -433,6 +619,64 @@ def process_workpaper(
         result.errors.append(f"Unexpected error in normalize_document: {e}")
         result.skipped = True
         result.skip_reason = str(e)
+        return result
+
+    # ------------------------------------------------------------------
+    # Step 1b — Incomplete template gate
+    # Blank assessment forms (0 checkboxes filled) are routing dead-ends:
+    # the extracted fields come entirely from LLM inference on narrative text,
+    # not from auditor decisions. Pair generation would produce nonsense.
+    # Route to review queue so the auditor can complete and resubmit.
+    # ------------------------------------------------------------------
+    if record.metadata.get("document_status") == "incomplete_template":
+        result.skipped = True
+        _cmp_ratio = record.metadata.get("checkbox_completion_ratio", 0.0)
+        result.skip_reason = (
+            f"document_status=incomplete_template — "
+            f"no checkbox responses detected "
+            f"(completion={_cmp_ratio:.0%}); "
+            f"pair generation skipped until form is completed"
+        )
+        logger.warning(
+            "pipeline: %s is an incomplete template — skipping pair generation",
+            path.name,
+        )
+        _placeholder = {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Incomplete template — no audit responses recorded",
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"File: {record.file_name}\n"
+                        f"Status: incomplete_template\n"
+                        f"Checkbox completion: {_cmp_ratio:.0%}"
+                    ),
+                },
+                {
+                    "role": "assistant",
+                    "content": "BLANK TEMPLATE — COMPLETE ENGAGEMENT FORM AND RESUBMIT",
+                },
+            ],
+            "metadata": {
+                "file_name":              record.file_name,
+                "file_type":              record.file_type,
+                "client_type":            "unknown",
+                "is_gagas":               False,
+                "has_single_audit":       False,
+                "extraction_confidence":  record.extraction_confidence,
+                "auditor_approved":       False,
+                "pair_type":              "incomplete_template",
+                "stage":                  "stage1",
+                "document_status":        "incomplete_template",
+                "checkbox_completion":    _cmp_ratio,
+                "file_hash":              record.file_hash or "",
+                "pair_hash":              "",
+            },
+        }
+        enqueue(_placeholder, _queue_path)
         return result
 
     # ------------------------------------------------------------------
@@ -531,6 +775,50 @@ def process_workpaper(
     has_single_audit_base = _detect_single_audit(record)
 
     # ------------------------------------------------------------------
+    # Pre-batch compiler validation (B3)
+    # Validate the compiled SOPGraph against structural invariants before
+    # producing any pairs. A compiler bug produces systematic wrong pairs
+    # across the entire batch — better to abort early than to silently
+    # corrupt the training dataset.
+    # ------------------------------------------------------------------
+    try:
+        from pipeline.sop_compiler import compiled_sop as _compiled_sop
+        _graph = _compiled_sop(sop_id)
+        _compiler_errors: list[str] = []
+
+        for _ct in _client_types:
+            _eligible = set(_graph.eligible_fields(_ct))
+            for _f in _eligible:
+                if _graph.is_locked(_f, _ct):
+                    _compiler_errors.append(
+                        f"locked field {_f!r} in eligible_fields for {_ct!r}"
+                    )
+                if _graph.is_informational(_f, _ct):
+                    _compiler_errors.append(
+                        f"informational field {_f!r} in eligible_fields for {_ct!r}"
+                    )
+            for _f in _graph.all_fields():
+                if _graph.allowed(_f, _ct) != (_f in _eligible):
+                    _compiler_errors.append(
+                        f"allowed/eligible_fields inconsistency for {_f!r}/{_ct!r}"
+                    )
+
+        if _compiler_errors:
+            _msg = (
+                f"SOPGraph compiler invariant violated — "
+                f"aborting batch to prevent dataset corruption. "
+                f"Errors: {'; '.join(_compiler_errors[:5])}"
+            )
+            logger.error("pipeline: %s", _msg)
+            result.errors.append(_msg)
+            result.skipped = True
+            result.skip_reason = _msg
+            return result
+
+    except Exception as _cve:
+        logger.warning("pipeline: pre-batch compiler validation unavailable — %s", _cve)
+
+    # ------------------------------------------------------------------
     # Step 4 — Phase 2: generate variants
     # ------------------------------------------------------------------
     for client_type in _client_types:
@@ -562,6 +850,8 @@ def process_workpaper(
                 deficiency_fields=[],
                 queue_path=_queue_path,
                 data_dir=_data_dir,
+                sop_id=sop_id,
+                debug_dir=debug_dir,
             )
         else:
             success, reason = _process_single_variant(
@@ -596,6 +886,7 @@ def process_workpaper(
                 present_fields=_fields_present,
                 file_name=record.file_name,
                 client_type=client_type,
+                sop_id=sop_id,
             )
             deficiency_combinations = _sample_result.combinations
             if _sample_result.pool_coverage_warning:
@@ -635,6 +926,8 @@ def process_workpaper(
                     deficiency_fields=effective_deficiency,
                     queue_path=_queue_path,
                     data_dir=_data_dir,
+                    sop_id=sop_id,
+                    debug_dir=debug_dir,
                 )
             else:
                 success, reason = _process_single_variant(
@@ -701,6 +994,18 @@ def write_approved(
             output_path = get_output_path(stage, _data_dir)
         except ValueError as e:
             logger.error("write_approved: %s", e)
+            errors += 1
+            continue
+
+        # Pair quality gate (Phase 5) — dataset firewall before JSONL write.
+        # Runs AFTER auditor approval to catch pairs edited during review.
+        from pipeline.pair_quality_gate import check_final_pair as _quality_check
+        qg = _quality_check(pair)
+        if not qg.passed:
+            logger.warning(
+                "write_approved: QUALITY GATE blocked pair — gate=%s reason=%s",
+                qg.gate, qg.reason,
+            )
             errors += 1
             continue
 

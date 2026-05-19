@@ -836,14 +836,20 @@ def score_r7(
     except Exception:
         tier1_set = set()
 
-    # Hard block: any Tier 1 uncertain → score = 0.0
+    # Tier 1 uncertain block: any uncertain Tier 1 field → cap score at floor.
+    # Floor (default 0.35) routes pair to auditor review without hard-zeroing —
+    # uncertain means "needs human verification", not "pair is wrong".
     tier1_uncertain = [f for f in validated.uncertain_fields if f.lower() in tier1_set]
     if tier1_uncertain:
-        logger.info(
-            "score_r7: Tier 1 uncertain %s → review_confidence=0.0 (hard block)",
-            tier1_uncertain,
+        cfg_floor    = _load_threshold_cfg()
+        t1_floor     = float(
+            cfg_floor.get("review", {}).get("r7", {}).get("tier1_uncertain_floor", 0.35)
         )
-        return 0.0
+        logger.info(
+            "score_r7: Tier 1 uncertain %s → review_confidence capped at %.2f",
+            tier1_uncertain, t1_floor,
+        )
+        return t1_floor
 
     # Load R7 scoring config
     cfg    = _load_threshold_cfg()

@@ -863,22 +863,24 @@ def validate_classification(
 
     output_keys   = set(states.keys())
     missing_keys  = [f for f in canonical_set if f not in output_keys]
-    extra_keys    = [k for k in output_keys if k not in canonical_set]
+    # extra_keys: read from FieldClassification.unknown_keys (captured before
+    # field_states was filtered to canonical-only in field_classifier.classify()).
+    # Recomputing from field_states would always give [] — field_classifier
+    # already filters field_states to canonical keys.
+    extra_keys    = list(getattr(classification, "unknown_keys", []))
 
     if missing_keys:
         logger.error(
-            "claim_mapper: SCHEMA VIOLATION — missing canonical keys: %s "
+            "claim_mapper: SCHEMA VIOLATION — missing_field_detected: %s "
             "(outlines should prevent this — check model/schema compatibility)",
             missing_keys,
         )
     if extra_keys:
         logger.warning(
-            "claim_mapper: unknown_field_detected in classifier output: %s "
-            "(alias leakage or schema drift — not silently corrected)",
+            "claim_mapper: unknown_field_detected: %s "
+            "(alias leakage or schema built from stale field list)",
             extra_keys,
         )
-        # Do NOT silently correct — these stay in states for observability.
-        # The drift_count will be non-zero and surface in ClassificationSignals.
 
     structural_valid      = len(missing_keys) == 0 and len(extra_keys) == 0
     schema_violation_count = len(missing_keys)

@@ -161,6 +161,20 @@ tier2:
       Affects independence assessment under ET 1.295. Important for
       NPO engagements but often not on the acceptance form itself.
 
+  # Who prepared the workpaper — documentation accountability
+  - field: preparer_id
+    reason: >
+      Identifies the staff member who completed the form. Required by SOP
+      for workpaper sign-off accountability. Tier 2 because engagement_partner
+      (Tier 1) is the authorizing signature; preparer adds traceability.
+
+  # Who reviewed the workpaper — quality control documentation
+  - field: reviewer_id
+    reason: >
+      Identifies the reviewer (manager or senior) who approved the work.
+      Important for GAAS workpaper documentation requirements but subordinate
+      to engagement_partner (Tier 1) as the final authorizing sign-off.
+
 
 # ===========================================================================
 # TIER 3 — INFORMATIONAL
@@ -175,6 +189,7 @@ tier3:
   - field: engagement_code
   - field: fiscal_year
   - field: financial_statement_use
+  - field: opinion_type
   - field: report_date
 
   # --- Client context ---

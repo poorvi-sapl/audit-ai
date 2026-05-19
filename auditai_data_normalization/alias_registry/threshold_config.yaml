@@ -157,9 +157,12 @@ review:
   # R7 classification-based scoring (score_r7 / set_review_gate_r7)
   # Replaces the grounding multiplier + hallucination penalty in the old scorer.
   r7:
-    # Any Tier 1 uncertain field → review_confidence = 0.0 (hard block).
-    # The pair is written to the review queue for auditor resolution.
+    # Any Tier 1 uncertain field → review_confidence capped at tier1_uncertain_floor.
+    # Pair is written to the review queue for auditor resolution.
+    # Floor of 0.35 routes to review without hard-zeroing (previously 0.0 which
+    # made uncertain-but-otherwise-correct pairs look like failures).
     tier1_uncertain_block: true
+    tier1_uncertain_floor: 0.35
 
     # Penalty per Tier 2 uncertain field.
     # Tier 2 uncertain = data quality signal (weak label confidence).
@@ -242,13 +245,14 @@ deficiency:
   # Measures SOP-exclusion shrinkage of the canonical field space.
   # Falling below threshold triggers a WARNING (non-blocking) so pipeline
   # operators can detect when sop_field_classes.yaml is over-pruning training diversity.
-  # Calibration: NPO has 0 canonical fields excluded → pool_coverage = 1.0;
-  # For-Profit has includes_gagas + includes_single_audit excluded → 13/15 = 0.867.
-  # Thresholds set at 0.80 / 0.70 so only aggressive SOP expansions trigger.
+  # Calibration: NPO has engagement_partner excluded (fixed_administrative,
+  # pre-filled per SOP-QM-001 §5) → pool_coverage ≈ 0.71 on NPO-CX-1.1 forms.
+  # For-Profit has includes_gagas + includes_single_audit excluded → ≈ 0.87.
+  # Thresholds set so only unintended SOP expansions trigger the WARNING.
   min_pool_coverage_by_client_type:
-    NPO:        0.80
+    NPO:        0.70   # engagement_partner always excluded (fixed_administrative)
     Government: 0.80
-    For-Profit: 0.70   # lower threshold — q1b/q1c always excluded for For-Profit
+    For-Profit: 0.70   # includes_gagas + includes_single_audit always excluded
     Tribal:     0.80
   min_pool_coverage_default: 0.80   # used when client_type not in the map above
 

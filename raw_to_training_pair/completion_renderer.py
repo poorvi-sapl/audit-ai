@@ -57,11 +57,12 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-_PKG_DIR     = Path(__file__).parent
-_PROJECT_DIR = _PKG_DIR.parent
-_TIERS_PATH  = _PROJECT_DIR / "config" / "field_tiers.yaml"
-_SFC_PATH    = _PROJECT_DIR / "config" / "sop_field_classes.yaml"
-_FIRM        = "Harshwal & Company LLP (HCLLP)"
+_PKG_DIR      = Path(__file__).parent
+_PROJECT_DIR  = _PKG_DIR.parent
+_TIERS_PATH   = _PROJECT_DIR / "config" / "field_tiers.yaml"
+_SFC_PATH     = _PROJECT_DIR / "config" / "sop_field_classes.yaml"
+_STDS_CTX_PATH = _PROJECT_DIR / "config" / "field_standards_context.yaml"
+_FIRM         = "Harshwal & Company LLP (HCLLP)"
 
 # SOP section pattern in free text (e.g. "SOP §2.1", "SOP §2.4")
 _SOP_REF_RE = re.compile(r"§\s*([A-Za-z0-9]+(?:[.\-][A-Za-z0-9]+)*)")
@@ -158,21 +159,21 @@ def _coerce_severity(raw: Any, tier_key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Risk text registry (deterministic, field-specific)
+# Consequence text registry (no embedded citations)
 # ---------------------------------------------------------------------------
+# Pure consequence statements — what goes wrong operationally if this field
+# is absent. NO §section or standard references embedded here. Citations are
+# assembled at render time by _resolve_standards() from field_standards_context.yaml.
+# This ensures SopMapping.sop_section is the single authoritative citation source.
 
-# Per-field risk text injected into finding paragraphs.
-# Keys are canonical field names. Values are one-sentence audit risk statements.
-# Extend as new fields are onboarded.
-_FIELD_RISK_TEXT: dict[str, str] = {
+_FIELD_CONSEQUENCE_TEXT: dict[str, str] = {
     "engagement_decision": (
         "Absence of the engagement acceptance or continuance decision means the "
-        "engagement lacks formal authorization, creating a professional standards "
-        "deficiency under SOP §Q2 and AICPA ET 1.300."
+        "engagement lacks formal authorization."
     ),
     "engagement_partner": (
         "Missing engagement partner identification prevents independence verification "
-        "and removes the required partner sign-off under SOP §Q9 and ET 1.110.010."
+        "and removes the required partner sign-off."
     ),
     "audit_type": (
         "Without a documented audit type, the applicable standards (GAAS, GAGAS, "
@@ -196,19 +197,19 @@ _FIELD_RISK_TEXT: dict[str, str] = {
     ),
     "includes_single_audit": (
         "Undocumented Single Audit scope creates a risk of non-compliance with "
-        "2 CFR Part 200 Uniform Guidance reporting and major program testing."
+        "Uniform Guidance reporting and major program testing requirements."
     ),
     "includes_gaas_audit": (
-        "Without explicit GAAS financial statement audit scope documentation, "
-        "the engagement's basis in AICPA AU-C standards is unverifiable."
+        "Without explicit financial statement audit scope documentation, "
+        "the engagement's basis in auditing standards is unverifiable."
     ),
     "includes_grant_compliance": (
         "Unrecorded grant compliance scope may result in omitted federal award "
         "testing required under the Uniform Guidance."
     ),
     "includes_nonattest_services": (
-        "Undocumented non-attest services create independence risk under "
-        "ET 1.295 that cannot be assessed without explicit disclosure."
+        "Undocumented non-attest services create independence risk that cannot "
+        "be assessed without explicit disclosure."
     ),
     "document_reference": (
         "A missing workpaper reference number impedes cross-referencing within "
@@ -228,10 +229,87 @@ _FIELD_RISK_TEXT: dict[str, str] = {
     ),
 }
 
-_DEFAULT_RISK_TEXT = (
+_DEFAULT_CONSEQUENCE_TEXT = (
     "This documentation deficiency weakens the evidentiary basis of the engagement "
     "workpaper and should be corrected prior to report issuance."
 )
+
+
+# ---------------------------------------------------------------------------
+# Standards context loader and resolver
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def _load_standards_ctx() -> dict:
+    """Load field_standards_context.yaml → {field: {base, gagas_additive, single_audit_additive}}."""
+    if not _STDS_CTX_PATH.exists():
+        logger.warning(
+            "completion_renderer: field_standards_context.yaml not found at %s — "
+            "risk text will be consequence-only (no standards citations)",
+            _STDS_CTX_PATH,
+        )
+        return {}
+    with open(_STDS_CTX_PATH, encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def _resolve_standards(
+    field_name:       str,
+    is_gagas:         bool,
+    has_single_audit: bool,
+) -> str | None:
+    """
+    Build the standards citation string for a field finding.
+
+    Returns a semicolon-joined string like:
+        "AU-C 220; Government Auditing Standards (Chapter 3)"
+    or None if no applicable standards are configured for this field/context.
+
+    Standards are additive: base always applies; context flags append layers.
+    The internal SOP section is NOT included here — it already appears in the
+    finding headline as "(§4)". Including it here would create two independent
+    citation sources that could drift.
+    """
+    ctx  = _load_standards_ctx().get(field_name, {})
+    cits: list[str] = list(ctx.get("base") or [])
+
+    if is_gagas:
+        cits.extend(ctx.get("gagas_additive") or [])
+    if has_single_audit:
+        cits.extend(ctx.get("single_audit_additive") or [])
+
+    if not cits:
+        return None
+
+    from raw_to_training_pair.citation_resolver import resolve as _resolve_cits
+    resolved = _resolve_cits(cits)
+    return "; ".join(resolved) if resolved else None
+
+
+# ---------------------------------------------------------------------------
+# Finding label registry (audit finding headlines, not SOP section headings)
+# ---------------------------------------------------------------------------
+
+# Per-field finding labels used as the finding headline in the completion.
+# These describe the deficiency, not the SOP section. Keys are canonical field
+# names. Fallback is mapping.label from the FIELD_TO_SOP table.
+_FIELD_FINDING_LABEL: dict[str, str] = {
+    "audit_type":                "Audit Type — Service Scope Not Documented",
+    "client_name":               "Client Entity — Not Identified",
+    "document_reference":        "Document Reference — Missing",
+    "ein":                       "EIN — Not Documented",
+    "engagement_decision":       "Engagement Decision — Not Documented",
+    "engagement_partner":        "Engagement Partner — Not Identified",
+    "fiscal_year_end":           "Fiscal Year End — Not Documented",
+    "includes_gaas_audit":       "GAAS Financial Statement Audit — Scope Not Documented",
+    "includes_gagas":            "GAGAS / Yellow Book Applicability — Not Documented",
+    "includes_grant_compliance":  "Grant Compliance Audit — Scope Not Documented",
+    "includes_nonattest_services": "Non-Attest Services Disclosure — Not Documented",
+    "includes_single_audit":     "Single Audit Requirement — Not Documented",
+    "partner_sign_date":         "Engagement Partner Sign-Off Date — Missing",
+    "preparation_date":          "Form Preparation Date — Not Documented",
+    "reporting_framework":       "Reporting Framework — Not Documented",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -303,7 +381,8 @@ def build_sop_mapping_table(client_type: str = "") -> SopTable:
             if eff_class != "deficiency_eligible":
                 continue
 
-            sop_section = _slug_to_section(slug)
+            # sop_section_override takes precedence; fallback to slug → §Section
+            sop_section = sfc_entry.get("sop_section_override") or _slug_to_section(slug)
             raw_sev     = sfc_entry.get("severity_default")
             severity    = _coerce_severity(raw_sev, tier_key)
             label       = sfc_entry.get("label") or label
@@ -470,11 +549,17 @@ def render_completion(
         if not mapping.sop_section:
             sop_unverified_fields.append(field_name)
 
-        risk_text = _FIELD_RISK_TEXT.get(field_name, _DEFAULT_RISK_TEXT)
+        consequence   = _FIELD_CONSEQUENCE_TEXT.get(field_name, _DEFAULT_CONSEQUENCE_TEXT)
+        standards_str = _resolve_standards(field_name, is_gagas, has_single_audit)
+        risk_text     = (
+            f"{consequence} Applicable standards: {standards_str}."
+            if standards_str else consequence
+        )
+        finding_label = _FIELD_FINDING_LABEL.get(field_name, mapping.label)
 
         idx = len(finding_lines) + 1
         finding_lines.append(
-            f"{idx}. {mapping.label}{citation}\n"
+            f"{idx}. {finding_label}{citation}\n"
             f"   Severity: {mapping.severity}\n"
             f"   Risk: {risk_text}"
         )
@@ -486,6 +571,22 @@ def render_completion(
     else:
         findings_block = "\n\n".join(finding_lines)
 
+    # Compliance reference adapts to engagement-level flags, overriding the
+    # client-type default when GAGAS or Single Audit flags are set.
+    if is_gagas and has_single_audit:
+        compliance = (
+            "Government Auditing Standards (Yellow Book) and "
+            "2 CFR Part 200 (Uniform Guidance)"
+        )
+    elif is_gagas:
+        compliance = "Government Auditing Standards (Yellow Book)"
+    elif has_single_audit:
+        compliance = (
+            "2 CFR Part 200 (Uniform Guidance) and applicable AICPA AU-C standards"
+        )
+    else:
+        compliance = ctx["compliance"]
+
     # Recommendation (template, client-type-aware)
     n = len(finding_lines)
     if n > 0:
@@ -494,12 +595,12 @@ def render_completion(
             f"to address the {n} identified documentation deficienc{'y' if n == 1 else 'ies'}. "
             f"{ctx['rec_context']} "
             f"All corrections should be completed and documented prior to report issuance "
-            f"in accordance with {ctx['compliance']}."
+            f"in accordance with {compliance}."
         )
     else:
         rec = (
             f"No corrective action is required. This {ctx['label']} engagement form "
-            f"appears complete and in compliance with {ctx['compliance']}."
+            f"appears complete and in compliance with {compliance}."
         )
 
     completion = (

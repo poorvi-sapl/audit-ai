@@ -95,7 +95,7 @@ _COVERAGE_LOG   = _PROJECT_DIR / "data" / "deficiency_coverage.jsonl"
 class FieldExclusion:
     """One field excluded from the sampling pool, with its reason."""
     field:  str
-    reason: str   # "fixed_admin" | "client_override" | "zero_weight" | "informational"
+    reason: str   # "fixed_admin" | "client_override" | "zero_weight" | "informational" | "no_sfc_entry"
 
 
 @dataclass
@@ -180,31 +180,42 @@ def _classify_fields(
     tier1_fields:   list[str],
     tier2_fields:   list[str],
     client_type:    str,
-    sfc,                         # SopFieldClasses | None
+    graph,                       # SOPGraph | None
     t1_weight: float,
     t2_weight: float,
 ) -> tuple[
     list[tuple[str, float]],     # eligible_t1: (field, weight)
     list[tuple[str, float]],     # eligible_t2: (field, weight)
-    list[FieldExclusion],        # excluded (governed — fixed_admin / zero_weight / informational)
+    list[FieldExclusion],        # excluded
     list[str],                   # unregistered_fields (in neither registry)
 ]:
     """
-    Three-way field classification:
+    Three-way field classification using the compiled SOPGraph.
 
-    governed          → has sop_field_classes entry — class + weight respected
-    assumed_eligible  → in tier1+tier2 but no sop entry — safe default, included silently
-    unregistered      → in present_fields but in neither registry — excluded, drift signal
+    SOPGraph is the single authority. All eligibility, lock, and weight
+    decisions come from one compiled object — no separate authority table.
+
+    governed (node exists in SOPGraph):
+        deficiency_allowed   → added to eligible pool at configured weight
+        is_locked            → excluded: "fixed_admin" or "client_override"
+        is_informational     → excluded: "informational"
+        sampling_weight==0.0 → excluded: "zero_weight"
+
+    no_sfc_entry (canonical but no SOPGraph node):
+        excluded: "no_sfc_entry"  (strict SFC-authority rule)
+
+    unregistered (in neither tier registry):
+        excluded — schema drift signal
     """
     present_set   = set(present_fields)
     tier1_set     = set(tier1_fields)
     tier2_set     = set(tier2_fields)
     canonical_set = tier1_set | tier2_set
 
-    eligible_t1:      list[tuple[str, float]] = []
-    eligible_t2:      list[tuple[str, float]] = []
-    excluded:         list[FieldExclusion]    = []
-    unregistered:     list[str]               = []
+    eligible_t1:  list[tuple[str, float]] = []
+    eligible_t2:  list[tuple[str, float]] = []
+    excluded:     list[FieldExclusion]    = []
+    unregistered: list[str]               = []
 
     # ── Canonical fields (tier1+tier2) ────────────────────────────────────
     for f in (tier1_fields + tier2_fields):
@@ -212,52 +223,48 @@ def _classify_fields(
             continue
 
         base_weight = t1_weight if f in tier1_set else t2_weight
-        pool = eligible_t1 if f in tier1_set else eligible_t2
+        pool        = eligible_t1 if f in tier1_set else eligible_t2
 
-        if sfc is None:
+        if graph is None:
+            # No graph available — degrade gracefully, include at tier weight
             pool.append((f, base_weight))
             continue
 
-        matches = sfc.by_canonical_field(f)
-        entry   = matches[0] if matches else None
+        node = graph.get(f)
 
-        if entry is None:
-            # assumed_eligible: canonical but not SOP-mapped — include at tier weight, no noise
-            pool.append((f, base_weight))
+        if node is None:
+            # Strict SFC-authority rule: no SOPGraph node → not eligible.
+            excluded.append(FieldExclusion(field=f, reason="no_sfc_entry"))
             continue
 
-        eff_class = entry.effective_class(client_type)
-
-        if entry.sampling_weight is not None and entry.sampling_weight == 0.0:
+        sw = node.sampling_weight
+        if sw is not None and sw == 0.0:
             excluded.append(FieldExclusion(field=f, reason="zero_weight"))
             continue
 
-        if eff_class == "fixed_administrative":
-            reason = "client_override" if (
-                entry.client_type_overrides and
-                client_type in entry.client_type_overrides
-            ) else "fixed_admin"
+        if graph.is_locked(f, client_type):
+            # client_override: locked only for this client_type, not in base
+            reason = "fixed_admin" if node.locked_in_base else "client_override"
             excluded.append(FieldExclusion(field=f, reason=reason))
             continue
 
-        if eff_class == "informational_only":
+        if graph.is_informational(f, client_type):
             excluded.append(FieldExclusion(field=f, reason="informational"))
             continue
 
-        w = float(entry.sampling_weight) if entry.sampling_weight is not None else base_weight
-        pool.append((f, w))
+        if not graph.allowed(f, client_type):
+            excluded.append(FieldExclusion(field=f, reason="no_sfc_entry"))
+            continue
+
+        pool.append((f, sw if sw is not None else base_weight))
 
     # ── Unregistered fields (in present_fields but not in canonical registry) ──
-    # Canonical registry (field_tiers.yaml) is the source of truth for field
-    # existence. SOP absence does not affect this classification — SOP is a
-    # behavior overlay, not an existence oracle.
     for f in present_fields:
         if f not in canonical_set:
             unregistered.append(f)
             logger.warning(
                 "deficiency_sampler: unregistered field '%s' (client_type=%s) — "
-                "not in field_tiers.yaml. This is a schema drift signal. "
-                "Excluded from sampling.",
+                "not in field_tiers.yaml. Schema drift signal. Excluded from sampling.",
                 f, client_type,
             )
 
@@ -271,7 +278,7 @@ def _classify_fields(
 def _eligible_pool_size(
     tier1_fields: list[str],
     tier2_fields: list[str],
-    sfc,
+    graph,
     client_type: str,
 ) -> int:
     """
@@ -279,26 +286,21 @@ def _eligible_pool_size(
     for deficiency sampling for this client_type, regardless of which fields
     appear in a specific workpaper.
 
-    This is independent of any document — it measures how much of the canonical
-    field space is still open after SOP policy exclusions.
+    Document-independent. Measures SOP-exclusion shrinkage of the canonical
+    field space for pool_coverage reporting.
     """
     count = 0
     for f in tier1_fields + tier2_fields:
-        if sfc is None:
+        if graph is None:
             count += 1
             continue
-        matches = sfc.by_canonical_field(f)
-        if not matches:
-            # assumed_eligible — not SOP-governed, include at tier weight
-            count += 1
+        node = graph.get(f)
+        if node is None:
+            continue   # strict SFC-authority rule: no node → not eligible
+        if node.sampling_weight is not None and node.sampling_weight == 0.0:
             continue
-        entry = matches[0]
-        if entry.sampling_weight is not None and entry.sampling_weight == 0.0:
-            continue
-        eff_class = entry.effective_class(client_type)
-        if eff_class == "deficiency_eligible":
+        if graph.allowed(f, client_type):
             count += 1
-        # fixed_administrative / informational_only → not eligible
     return count
 
 
@@ -336,7 +338,6 @@ def _build_coverage_audit(
     excluded:        list[FieldExclusion],
     unregistered:    list[str],
     combinations:    list[list[str]],
-    sfc,
     client_type:     str,
 ) -> list[FieldCoverageEntry]:
     sampled       = {f for combo in combinations for f in combo}
@@ -351,14 +352,13 @@ def _build_coverage_audit(
         if f in sampled:
             cls = "sampled"
         elif f in eligible_set:
-            # Distinguish governed-eligible from assumed-eligible for observability
-            has_entry = bool(sfc and sfc.by_canonical_field(f))
-            cls = "eligible_not_sampled" if has_entry else "assumed_eligible"
+            cls = "eligible_not_sampled"
         elif f in excluded_map:
             reason = excluded_map[f]
             cls = (
                 "excluded_zero_weight"   if reason == "zero_weight"   else
                 "excluded_informational" if reason == "informational"  else
+                "excluded_no_sfc_entry"  if reason == "no_sfc_entry"  else
                 "excluded_fixed_admin"
             )
         else:
@@ -380,6 +380,7 @@ def sample(
     present_fields: list[str],
     file_name:      str,
     client_type:    str,
+    sop_id:         str = "npo-cx-1.1",
 ) -> SampleResult:
     """
     Sample randomised deficiency field combinations for one (doc, client_type).
@@ -398,17 +399,23 @@ def sample(
     tier1_fields, tier2_fields = _load_tier_fields()
     present_set = set(present_fields)
 
-    # Load sop_field_classes — None on failure (degrades gracefully)
-    sfc = None
+    # Load compiled SOPGraph — None on failure (degrades gracefully)
+    graph = None
+    _graph_version = ""
     try:
-        from config.settings import load_sop_field_classes
-        sfc = load_sop_field_classes()
+        from pipeline.sop_compiler import compiled_sop as _compiled_sop
+        graph = _compiled_sop(sop_id)
+        _graph_version = graph.graph_version
+        logger.debug(
+            "deficiency_sampler: SOPGraph ready sop_id=%r version=%s",
+            sop_id, _graph_version,
+        )
     except Exception as _e:
-        logger.debug("deficiency_sampler: sop_field_classes unavailable — %s", _e)
+        logger.debug("deficiency_sampler: SOPGraph unavailable — %s", _e)
 
     eligible_t1, eligible_t2, excluded, unregistered = _classify_fields(
         present_fields, tier1_fields, tier2_fields,
-        client_type, sfc, t1_weight, t2_weight,
+        client_type, graph, t1_weight, t2_weight,
     )
 
     for ex in excluded:
@@ -419,7 +426,7 @@ def sample(
 
     total_canonical  = len(tier1_fields) + len(tier2_fields)
     eligible_count   = len(eligible_t1) + len(eligible_t2)   # present + eligible
-    eligible_pool    = _eligible_pool_size(tier1_fields, tier2_fields, sfc, client_type)
+    eligible_pool    = _eligible_pool_size(tier1_fields, tier2_fields, graph, client_type)
     schema_drift     = len(unregistered)
     coverage_alert   = schema_drift > 0
 
@@ -431,7 +438,7 @@ def sample(
         )
         audit = _build_coverage_audit(
             tier1_fields, tier2_fields, present_set,
-            eligible_t1, eligible_t2, excluded, unregistered, [], sfc, client_type,
+            eligible_t1, eligible_t2, excluded, unregistered, [], client_type,
         )
         return SampleResult(
             combinations=[], excluded_fields=excluded,
@@ -509,14 +516,15 @@ def sample(
     audit = _build_coverage_audit(
         tier1_fields, tier2_fields, present_set,
         eligible_t1, eligible_t2, excluded, unregistered, combinations,
-        sfc, client_type,
+        client_type,
     )
 
     _log_coverage(file_name, client_type, combinations, excluded, pool_coverage, unregistered)
 
     logger.debug(
-        "deficiency_sampler: %s/%s → combos=%s pool_coverage=%.3f excluded=%s unregistered=%s",
-        file_name, client_type, combinations, pool_coverage,
+        "deficiency_sampler: %s/%s sop_id=%r version=%s → combos=%s pool_coverage=%.3f "
+        "excluded=%s unregistered=%s",
+        file_name, client_type, sop_id, _graph_version, combinations, pool_coverage,
         [e.field for e in excluded], unregistered,
     )
 
@@ -540,6 +548,7 @@ def shadow_compare(
     present_fields: list[str],
     file_name:      str,
     client_type:    str,
+    sop_id:         str = "npo-cx-1.1",
 ) -> ShadowResult:
     """
     Run sample() in strict mode (R5 guards active) and relaxed mode
@@ -549,7 +558,7 @@ def shadow_compare(
     Use this to detect when sop_field_classes.yaml is over-constraining
     training diversity across a batch of documents.
     """
-    strict  = sample(present_fields, file_name, client_type)
+    strict  = sample(present_fields, file_name, client_type, sop_id=sop_id)
 
     # Relaxed: pass sfc=None so _classify_fields treats all fields as eligible
     cfg    = _load_thresholds()

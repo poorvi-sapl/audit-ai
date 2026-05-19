@@ -228,10 +228,11 @@ audit_type:
   - "type of audit"
   - "type of engagement"
   - "engagement type"
-  - "services"
   - "services requested"
   - "services desired"
   - "type of service"
+  - "desire from our firm"
+  - "organization desire from our firm"
 
 includes_gaas_audit:
   - "audit of organization's financial statements in accordance with gaas"
@@ -307,11 +308,10 @@ reporting_framework:
   - "gasb"
 
 opinion_type:
-  - "opinion"
   - "audit opinion"
   - "type of opinion"
   - "auditor's opinion"
-  - "report type"
+  - "auditor opinion"
   - "unmodified opinion"
   - "qualified opinion"
   - "adverse opinion"
@@ -605,7 +605,6 @@ credit:
   - "current_credit"
 
 transaction_date:
-  - "date"
   - "transaction date"
   - "voucher date"
   - "vch_date"         # busy.yaml

@@ -92,14 +92,52 @@ def _is_heading(para: Paragraph) -> bool:
 # Table extraction helpers
 # ---------------------------------------------------------------------------
 
+# Wingdings w:char hex codes that represent checkmarks.
+# python-docx's .text drops <w:sym> entirely — we walk XML and emit 
+# for these codes so normalize_text() can map them to "true".
+_WINGDINGS_CHECKMARK_CODES: frozenset[str] = frozenset({
+    "F0FC", "F0FB", "F0FE", "F0FD", "F052", "F061",
+})
+_W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+
+def _para_text_with_sym(para) -> str:
+    """
+    Extract paragraph text including <w:sym> Wingdings checkmarks.
+
+    python-docx's .text only reads <w:t> elements and silently drops <w:sym>
+    symbol references (e.g. Wingdings F0FC checkmarks). This walks the run
+    elements directly so those checkmarks survive into normalize_text().
+    """
+    from lxml import etree
+    parts: list[str] = []
+    for elem in para._p:
+        if etree.QName(elem.tag).localname != "r":
+            continue
+        for child in elem:
+            tag = etree.QName(child.tag).localname
+            if tag == "t":
+                parts.append(child.text or "")
+            elif tag == "sym":
+                font = (child.get(f"{{{_W_NS}}}font") or "").lower()
+                code = (child.get(f"{{{_W_NS}}}char") or "").upper()
+                if font.startswith("wingdings") and code in _WINGDINGS_CHECKMARK_CODES:
+                    parts.append("")
+    return "".join(parts)
+
+
 def _get_cell_text(cell) -> str:
     """
     Extract full text from a table cell, joining paragraphs with spaces.
     Phase 1: normalize_text() applied before returning so checkbox symbols,
     underscore artifacts, and inline markers are resolved at the cell level.
     """
-    raw = " ".join(p.text.strip() for p in cell.paragraphs if p.text.strip())
-    return normalize_text(raw)
+    parts = []
+    for p in cell.paragraphs:
+        t = _para_text_with_sym(p).strip()
+        if t:
+            parts.append(t)
+    return normalize_text(" ".join(parts))
  
 
 # ---------------------------------------------------------------------------
@@ -187,6 +225,8 @@ def _resolve_checkbox_columns(
     # Identify Yes/No/checkbox column indices
     _YES_VARIANTS  = {"yes", "true",  "✓", "applicable", "check", "checked"}
     _NO_VARIANTS   = {"no",  "false", "✗", "not applicable", "n/a", "unchecked"}
+    # "x" = capital-X manual fill (used in some DOCX templates, not converted by normalize_text)
+    _CHECKED_VALUES = {_CHECKED_SENTINEL, "x"}
  
     yes_col_indices: list[int] = []
     no_col_indices:  list[int] = []
@@ -217,19 +257,19 @@ def _resolve_checkbox_columns(
         for col_idx in yes_col_indices:
             if col_idx < len(row):
                 cell = row[col_idx].strip().lower()
-                if cell == _CHECKED_SENTINEL:
+                if cell in _CHECKED_VALUES:
                     resolved_value = "true"
                     break
                 elif cell == _UNCHECKED_SENTINEL:
                     resolved_value = "false"
                     break
- 
+
         # If not resolved from Yes col, check No columns
         if resolved_value is None:
             for col_idx in no_col_indices:
                 if col_idx < len(row):
                     cell = row[col_idx].strip().lower()
-                    if cell == _CHECKED_SENTINEL:
+                    if cell in _CHECKED_VALUES:
                         resolved_value = "false"   # "No" column is checked → value is false
                         break
                     elif cell == _UNCHECKED_SENTINEL:
@@ -280,8 +320,18 @@ def _extract_table(table: Table, index: int, source: str = "") -> ExtractedTable
     #
     # Only applied to tables with at least 2 columns.
     # Guards against consuming genuine label rows.
- 
-    if len(filled_rows) > 1 and filled_rows and len(filled_rows[0]) >= 2:
+    #
+    # Skip entirely for Yes/No checkbox assessment tables — these have
+    # empty col 1 on every data row (the checkmark lives in col 2 or 3),
+    # so vertical continuation would incorrectly merge every pair of
+    # question rows into one row, destroying checkbox column alignment.
+    _first_row_lower = (
+        [c.strip().lower() for c in filled_rows[0]] if filled_rows else []
+    )
+    _is_yesno_table = "yes" in _first_row_lower and "no" in _first_row_lower
+
+    if len(filled_rows) > 1 and filled_rows and len(filled_rows[0]) >= 2 \
+            and not _is_yesno_table:
         consumed: set[int] = set()
         continued_rows: list[list[str]] = []
  

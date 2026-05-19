@@ -1,0 +1,17 @@
+{
+  "failure_reason": "gate=review_confidence: review_confidence 0.350 < 0.7. Completion quality below threshold. Send to review queue \u2014 auditor can edit and re-approve.",
+  "review_confidence": 0.35,
+  "quality_gate": false,
+  "pair_type": "deficient",
+  "client_type": "NPO",
+  "pair_hash": "c430ef63c3915d59673094169f19647a2c0c0553b80d1f44f5d0d26e8aa4ada9",
+  "deficiency_fields": [
+    "audit_type"
+  ],
+  "signals": {
+    "structural_valid": true,
+    "uncertain_rate": 0.0588,
+    "pass2_rejection_rate": 0.0
+  },
+  "completion_preview": "ENGAGEMENT TYPE: Nonprofit Organization (501(c)(3)) \u2014 GAGAS (Yellow Book) + Single Audit (2 CFR 200)\n\nFINDINGS:\n1. Audit Type \u2014 Service Scope Not Documented (\u00a7Q1)\n   Severity: High\n   Risk: Without a documented audit type, the applicable standards (GAAS, GAGAS, or Single Audit) cannot be confirmed, risking scope misalignment. Applicable standards: AU-C 200; GAS Chapter 2.\n\n2. Engagement Partner Si"
+}

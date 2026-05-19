@@ -1,0 +1,180 @@
+# config/field_standards_context.yaml
+# =====================================
+# Additive professional standards context for each canonical field.
+#
+# Purpose
+# -------
+# Decouples standards citations from consequence text in completion_renderer.py.
+# The renderer assembles the full risk text at render time:
+#
+#     risk_text = consequence + " Applicable standards: " + resolved_citations
+#
+# where resolved_citations = base + (gagas_additive if is_gagas) +
+#                            (single_audit_additive if has_single_audit)
+#
+# Standards are ADDITIVE, not swapped. GAGAS engagements still carry all base
+# standards; the gagas_additive layer supplements them. Same for Single Audit.
+#
+# Keys
+# ----
+# base               — always cited, regardless of engagement flags
+# gagas_additive     — appended when is_gagas == True
+# single_audit_additive — appended when has_single_audit == True
+#
+# Omit a key (or leave it as []) if no additional standards apply in that context.
+#
+# Internal SOP section references (§4, §Q2, etc.) are NOT stored here.
+# They come from SopMapping.sop_section (compiled from sop_field_classes.yaml)
+# and are already rendered in the finding headline as "(§4)". Duplication in
+# the risk text body would create two independent citation sources.
+#
+# Review instructions
+# -------------------
+# - Validate AU-C section numbers against the AICPA Audit and Accounting Guide
+# - Validate GAS chapter/paragraph references against the Yellow Book (2018 rev.)
+# - Validate 2 CFR citations against the Uniform Guidance (2 CFR Part 200)
+# - ET citations use the AICPA Code of Professional Conduct numbering
+# - Entries with no standards (all lists empty) generate consequence-only risk text
+#
+# Last updated: 2026-05-18
+# Reviewed by:  (to be filled in)
+
+
+# ---------------------------------------------------------------------------
+# Engagement identity and authorization
+# ---------------------------------------------------------------------------
+
+engagement_decision:
+  # Engagement acceptance/continuance is governed by AU-C 220 quality
+  # management. GAGAS adds Chapter 3 quality management obligations.
+  base:
+    - "AU-C 220"
+  gagas_additive:
+    - "Government Auditing Standards (Chapter 3)"
+  single_audit_additive: []
+
+engagement_partner:
+  # Partner authorization is a quality management requirement (AU-C 220).
+  # GAGAS adds independence and quality oversight obligations.
+  base:
+    - "AU-C 220"
+    - "ET 1.110.010"
+  gagas_additive:
+    - "Government Auditing Standards §3.36"
+  single_audit_additive: []
+
+client_name:
+  # No external standard specifically mandates client identification beyond
+  # general engagement documentation. Consequence alone is sufficient.
+  base: []
+  gagas_additive: []
+  single_audit_additive: []
+
+fiscal_year_end:
+  # Period identification is implicit in AU-C 210 (engagement terms) and
+  # AU-C 700 (reporting). No single section governs this directly.
+  base:
+    - "AU-C 210"
+  gagas_additive: []
+  single_audit_additive: []
+
+partner_sign_date:
+  # Sign date establishes independence dating. GAGAS adds additional
+  # independence period documentation requirements.
+  base:
+    - "AU-C 220"
+    - "ET 1.110.010"
+  gagas_additive:
+    - "Government Auditing Standards §3.36"
+  single_audit_additive: []
+
+
+# ---------------------------------------------------------------------------
+# Engagement scope and standards applicability
+# ---------------------------------------------------------------------------
+
+audit_type:
+  # Overall objectives and scope are governed by AU-C 200. GAGAS adds
+  # chapter 2 scope requirements for governmental audits.
+  base:
+    - "AU-C 200"
+  gagas_additive:
+    - "Government Auditing Standards (Chapter 2)"
+  single_audit_additive: []
+
+reporting_framework:
+  # Basis of accounting and framework selection is governed by AU-C 700
+  # (forming an opinion) and AU-C 800 (special purpose frameworks).
+  base:
+    - "AU-C 700"
+  gagas_additive: []
+  single_audit_additive: []
+
+includes_gagas:
+  # If this flag is undocumented the Yellow Book requirements cannot be
+  # applied. No base standard — the field's absence IS the standards gap.
+  base: []
+  gagas_additive:
+    - "Government Auditing Standards (Chapter 3)"
+    - "Government Auditing Standards §3.36"
+  single_audit_additive: []
+
+includes_single_audit:
+  # Single Audit scope is defined in 2 CFR 200.514. Omitting this flag
+  # creates a compliance gap that cannot be retroactively corrected.
+  base: []
+  gagas_additive: []
+  single_audit_additive:
+    - "2 CFR 200.514"
+
+includes_gaas_audit:
+  # Financial statement audit scope is governed by AU-C 200 overall objectives.
+  base:
+    - "AU-C 200"
+  gagas_additive: []
+  single_audit_additive: []
+
+includes_grant_compliance:
+  # Federal award compliance testing requirements under the Uniform Guidance.
+  # 200.514 covers the audit requirement; 200.516 covers audit findings.
+  base: []
+  gagas_additive: []
+  single_audit_additive:
+    - "2 CFR 200.514"
+    - "2 CFR 200.516"
+
+includes_nonattest_services:
+  # Non-attest service independence is governed by ET 1.295. GAGAS adds
+  # supplemental independence requirements under Chapter 3.
+  base:
+    - "ET 1.295"
+  gagas_additive:
+    - "Government Auditing Standards (Chapter 3)"
+  single_audit_additive: []
+
+
+# ---------------------------------------------------------------------------
+# Administrative and filing fields
+# ---------------------------------------------------------------------------
+
+document_reference:
+  # No external standard directly mandates a workpaper reference number.
+  # Consequence alone is sufficient.
+  base: []
+  gagas_additive: []
+  single_audit_additive: []
+
+preparation_date:
+  # Timeliness of engagement documentation is implicit in AU-C 230
+  # (audit documentation). No specific citation for this field alone.
+  base:
+    - "AU-C 230"
+  gagas_additive: []
+  single_audit_additive: []
+
+ein:
+  # EIN is not required by any auditing standard on the engagement form.
+  # Informational field — consequence-only, no standards citation.
+  base: []
+  gagas_additive: []
+  single_audit_additive: []

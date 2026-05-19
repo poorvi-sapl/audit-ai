@@ -74,6 +74,8 @@ _CHECKED_CHARS: frozenset[str] = frozenset({
     "\u25cf",   # ●  BLACK CIRCLE
     # Wingdings font codepoints (survive PDF/DOCX extraction as private-use chars)
     "\uf0fe",   # Wingdings checked box  (most common in PPC forms)
+    "\uf0fc",   # Wingdings checkmark (w:sym F0FC \u2014 used in IIT/IMM/NPO templates)
+    "\uf0fb",   # Wingdings checkmark variant
     "\uf061",   # Wingdings tick
     "\uf0a3",   # Wingdings filled square
     "\uf052",   # Wingdings checkmark variant

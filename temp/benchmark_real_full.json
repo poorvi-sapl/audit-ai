@@ -1,0 +1,145 @@
+{
+  "run_at": "2026-05-19T05:48:47.538549+00:00",
+  "targets": {
+    "extraction": 0.65,
+    "review": 0.75
+  },
+  "summary": {
+    "total": 6,
+    "both_pass": 2,
+    "extraction_fail": 4,
+    "review_fail": 4
+  },
+  "results": [
+    {
+      "file_name": "AD-5001 NPO-CX-1_1 Engagement Accept and Cont For1.docx",
+      "file_type": "docx",
+      "extraction_confidence": 0.75,
+      "review_confidence": 0.9429,
+      "extraction_gate": true,
+      "quality_gate": true,
+      "tier1_found": 7,
+      "tier1_total": 8,
+      "tier1_missing": [
+        "client_name"
+      ],
+      "flagged_fields": [
+        "audit_type",
+        "client_name",
+        "document_reference",
+        "engagement_decision",
+        "engagement_partner",
+        "fiscal_year_end",
+        "includes_gagas",
+        "includes_grant_compliance",
+        "includes_nonattest_services",
+        "includes_single_audit",
+        "preparation_date",
+        "preparer_id",
+        "reporting_framework"
+      ],
+      "llm_assisted": true,
+      "pairs_generated": 0,
+      "errors": []
+    },
+    {
+      "file_name": "IIT NPO-CX-1.1 Engagement Accept and Cont Form.docx",
+      "file_type": "unknown",
+      "extraction_confidence": 0.0,
+      "review_confidence": 0.0,
+      "extraction_gate": false,
+      "quality_gate": false,
+      "tier1_found": 0,
+      "tier1_total": 8,
+      "tier1_missing": [],
+      "flagged_fields": [],
+      "llm_assisted": false,
+      "pairs_generated": 0,
+      "errors": [
+        "skipped: document_status=incomplete_template \u2014 no checkbox responses detected (completion=0%); pair generation skipped until form is completed"
+      ]
+    },
+    {
+      "file_name": "IMM NPO CX 1 1 Engagement Accept and Cont Form.docx",
+      "file_type": "unknown",
+      "extraction_confidence": 0.0,
+      "review_confidence": 0.0,
+      "extraction_gate": false,
+      "quality_gate": false,
+      "tier1_found": 0,
+      "tier1_total": 8,
+      "tier1_missing": [],
+      "flagged_fields": [],
+      "llm_assisted": false,
+      "pairs_generated": 0,
+      "errors": [
+        "skipped: document_status=incomplete_template \u2014 no checkbox responses detected (completion=0%); pair generation skipped until form is completed"
+      ]
+    },
+    {
+      "file_name": "NPO CX 1 1 Engagement Accept and Cont Form.docx",
+      "file_type": "unknown",
+      "extraction_confidence": 0.0,
+      "review_confidence": 0.0,
+      "extraction_gate": false,
+      "quality_gate": false,
+      "tier1_found": 0,
+      "tier1_total": 8,
+      "tier1_missing": [],
+      "flagged_fields": [],
+      "llm_assisted": false,
+      "pairs_generated": 0,
+      "errors": [
+        "skipped: document_status=incomplete_template \u2014 no checkbox responses detected (completion=0%); pair generation skipped until form is completed"
+      ]
+    },
+    {
+      "file_name": "NPO-CX-1_1 Engagement Accept and Cont Form...docx",
+      "file_type": "unknown",
+      "extraction_confidence": 0.0,
+      "review_confidence": 0.0,
+      "extraction_gate": false,
+      "quality_gate": false,
+      "tier1_found": 0,
+      "tier1_total": 8,
+      "tier1_missing": [],
+      "flagged_fields": [],
+      "llm_assisted": false,
+      "pairs_generated": 0,
+      "errors": [
+        "skipped: document_status=incomplete_template \u2014 no checkbox responses detected (completion=0%); pair generation skipped until form is completed"
+      ]
+    },
+    {
+      "file_name": "NPO-CX-1_1 Prepared  Engagement Accept and Cont Form.docx",
+      "file_type": "docx",
+      "extraction_confidence": 0.75,
+      "review_confidence": 0.8857,
+      "extraction_gate": true,
+      "quality_gate": true,
+      "tier1_found": 7,
+      "tier1_total": 8,
+      "tier1_missing": [
+        "client_name"
+      ],
+      "flagged_fields": [
+        "audit_type",
+        "client_name",
+        "document_reference",
+        "engagement_decision",
+        "engagement_partner",
+        "fiscal_year_end",
+        "includes_gagas",
+        "includes_grant_compliance",
+        "includes_nonattest_services",
+        "includes_single_audit",
+        "preparation_date",
+        "preparer_id",
+        "reporting_framework"
+      ],
+      "llm_assisted": true,
+      "pairs_generated": 0,
+      "errors": []
+    }
+  ]
+}

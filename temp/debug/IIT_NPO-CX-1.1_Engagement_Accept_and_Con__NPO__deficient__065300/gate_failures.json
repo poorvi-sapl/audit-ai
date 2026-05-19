@@ -1,0 +1,18 @@
+{
+  "failure_reason": "hard_gate=alias_residue: User message still contains evidence for 1 absent field(s) after redaction \u2014 'includes_single_audit' matched alias 'single audit'. Redactor reported fully_redacted=True but alias scan disagrees; check for encoding or line-boundary differences.",
+  "review_confidence": 0.92,
+  "quality_gate": true,
+  "pair_type": "deficient",
+  "client_type": "NPO",
+  "pair_hash": "45aeec5c6040d47dedcba77b0fae5dc3bfdab994675c9c0af8a04d9edc48c9b2",
+  "deficiency_fields": [
+    "fiscal_year_end",
+    "includes_single_audit"
+  ],
+  "signals": {
+    "structural_valid": true,
+    "uncertain_rate": 0.0,
+    "pass2_rejection_rate": 0.0
+  },
+  "completion_preview": "ENGAGEMENT TYPE: Nonprofit Organization (501(c)(3)) \u2014 GAGAS (Yellow Book) + Single Audit (2 CFR 200)\n\nFINDINGS:\n1. Fiscal Year End \u2014 Not Documented\n   Severity: High\n   Risk: An undated engagement period makes the workpaper unusable for continuance decisions and timeline verification by supervisory review. Applicable standards: AU-C 210.\n\n2. Single Audit Requirement \u2014 Not Documented (\u00a7Q1(c))\n   Se"
+}

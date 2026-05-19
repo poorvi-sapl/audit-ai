@@ -95,6 +95,7 @@ def _run_one(
     data_dir: Path,
     client_type: str = "NPO",
     use_mock: bool = True,
+    debug_dir: Path | None = None,
 ) -> WorkpaperResult:
     errors: list[str] = []
 
@@ -107,6 +108,7 @@ def _run_one(
             run_parallel=False,
             client_types=[client_type],
             use_mock=use_mock,
+            debug_dir=debug_dir,
         )
     except Exception as e:
         return WorkpaperResult(
@@ -172,6 +174,7 @@ def run_benchmark(
     target_files: list[Path] | None = None,
     client_type: str = "NPO",
     report_path: Path | None = None,
+    debug_dir: Path | None = None,
 ) -> list[WorkpaperResult]:
     """
     Run all workpapers in data_dir through the pipeline and collect metrics.
@@ -185,7 +188,31 @@ def run_benchmark(
     report_path : Path   If set, writes JSON report here.
     """
     _SUPPORTED = {".docx", ".pdf", ".xlsx", ".xls", ".csv", ".json"}
-    _SKIP_PATTERNS = {"SOP", "review_queue", "suggested_aliases"}
+    # Files whose names match any of these substrings are excluded from the
+    # benchmark scan.  Audit reports and financial statements live in data/
+    # alongside engagement forms but are not the benchmark target — they score
+    # low on review_confidence with mock completions and produce misleading
+    # summary numbers.  Add new patterns here as new non-engagement file types
+    # are added to data/.
+    _SKIP_PATTERNS = {
+        "SOP",
+        "review_queue",
+        "suggested_aliases",
+        "benchmark_queue",
+        "Audit Report",       # Final Audit Report / FinalAuditReport PDFs
+        "Financial Statements",  # DraftFinancialStatements / ECEStep_Final_Financial_Statements
+        "Final Report",       # Heffernan_Foundation…_Final Report PDF
+    }
+
+    def _skip(fname: str) -> bool:
+        # Strip spaces, underscores, and hyphens from both sides before
+        # comparing so "Audit Report" matches "FinalAuditReport-..." and
+        # "Financial Statements" matches "DraftFinancialStatements_...".
+        norm = fname.lower().replace(" ", "").replace("_", "").replace("-", "")
+        return any(
+            p.lower().replace(" ", "").replace("_", "").replace("-", "") in norm
+            for p in _SKIP_PATTERNS
+        )
 
     if target_files:
         files = target_files
@@ -193,7 +220,7 @@ def run_benchmark(
         files = [
             f for f in sorted(data_dir.iterdir())
             if f.suffix.lower() in _SUPPORTED
-            and not any(p in f.name for p in _SKIP_PATTERNS)
+            and not _skip(f.name)
         ]
 
     if not files:
@@ -209,7 +236,7 @@ def run_benchmark(
 
     for f in files:
         print(f"  Running: {f.name} ...", end="", flush=True)
-        r = _run_one(f, queue_path, data_dir, client_type, use_mock)
+        r = _run_one(f, queue_path, data_dir, client_type, use_mock, debug_dir)
         results.append(r)
         print(f"\r{r.row()}")
         if r.errors:
@@ -277,12 +304,19 @@ if __name__ == "__main__":
     parser.add_argument("--client",     default="NPO", help="Client type (default NPO)")
     parser.add_argument("--file",       help="Run a single file instead of all")
     parser.add_argument("--report",     help="Write JSON report to this path")
+    parser.add_argument("--debug",      action="store_true",
+                        help="Write debug artifact bundles to temp/debug/ for each failed generation")
     args = parser.parse_args()
 
     use_mock   = not args.real
     data_dir   = Path(args.data_dir)
     target     = [Path(args.file)] if args.file else None
     report     = Path(args.report) if args.report else None
+    debug_dir  = None
+    if args.debug:
+        debug_dir = Path("temp/debug")
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        print(f"  Debug bundles → {debug_dir.resolve()}")
 
     results = run_benchmark(
         data_dir=data_dir,
@@ -290,6 +324,7 @@ if __name__ == "__main__":
         target_files=target,
         client_type=args.client,
         report_path=report,
+        debug_dir=debug_dir,
     )
 
     # Exit 1 if any workpaper failed targets

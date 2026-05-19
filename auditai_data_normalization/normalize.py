@@ -283,6 +283,54 @@ _EMBEDDED_LABEL_RE = re.compile(
     r"\s+[A-Z][A-Za-z0-9 /&\-\.\(\)]{1,60}:\s+"
 )
 
+# ---------------------------------------------------------------------------
+# Checkbox table helpers
+# ---------------------------------------------------------------------------
+
+# Characters used as visual checkmarks in DOCX Yes/No form tables.
+#  = Wingdings checkmark (PUA — appears as ✔ in Wingdings font).
+# X / x  = manual fill.  ✓ ✔ ☑ ☒ = Unicode variants.
+_CHECKBOX_CHARS: frozenset[str] = frozenset({
+    "",            # Wingdings checkmark (Private Use Area)
+    "X", "x",           # manual fill
+    "✓", "✔",  # ✓ ✔
+    "☑", "☒",  # ☑ ☒
+})
+
+
+def _has_checkmark(cell: str) -> bool:
+    """
+    Return True if the cell contains a checked checkbox sentinel.
+
+    Handles both raw characters and forms normalized by _get_cell_text():
+      "true" = normalize_text() output for \\uf061 (Wingdings) and Unicode boxes
+      "x"    = manual capital-X fill used in some DOCX templates (not normalized)
+    """
+    if not cell:
+        return False
+    c = cell.strip().lower()
+    if c in ("true", "x"):
+        return True
+    return any(ch in cell for ch in _CHECKBOX_CHARS)
+
+
+def _question_to_short_label(question_text: str) -> str:
+    """
+    Extract the short question label from a long table cell.
+
+    Long question cells include SOP guidance text after the core question.
+    Strategy: take first line, strip trailing '?', strip parenthetical guidance.
+
+    Examples:
+        "Single Audit?\\nPractical Consideration: ..."  → "Single Audit"
+        "Audit of organization's financial statements in accordance with GAAS?
+         (Specify.) \\nPractical Considerations: ..."
+             → "Audit of organization's financial statements in accordance with GAAS"
+    """
+    first_line = question_text.split("\n")[0].strip()
+    before_paren = first_line.split("(")[0].strip()
+    return before_paren.rstrip("?").rstrip(":").strip()
+
 
 # Canonical field labels — used by inverted row detection to recognise
 # when a cell that appears AFTER a value cell is actually the label.
@@ -494,8 +542,206 @@ def _extract_fields_from_record(record: DocumentRecord) -> dict[str, list[str]]:
                     header_norm, cell_value,
                 )
 
+    # ── Phase 6 — Same-row value-label extraction ────────────────────────
+    # Some PPC sign-off tables store value and label as adjacent columns
+    # in the same row (no separate header row):
+    #
+    #   Row: ["Sanwar Harshwal",   "Engagement Partner"]
+    #         value col=0          label col=1
+    #
+    # The forward and header-column passes miss this because the label is
+    # in the same row as the value (not a separate row or a preceding header).
+    #
+    # Strategy: scan each adjacent (cell[j], cell[j+1]) pair in every row.
+    # If cell[j+1] is a canonical label and cell[j] looks like a value,
+    # emit the pair.
+
+    for table in record.tables:
+        all_rows = ([table.headers] + table.rows) if table.headers else table.rows
+        for row in all_rows:
+            if not row or len(row) < 2:
+                continue
+            norm_row = [normalize_text(str(c)).strip() for c in row]
+            for j in range(len(norm_row) - 1):
+                label_candidate = norm_row[j + 1]
+                value_candidate = norm_row[j]
+                if not label_candidate or not value_candidate:
+                    continue
+                label_lower = label_candidate.lower()
+                if label_lower not in canonical_labels:
+                    continue
+                if value_candidate.endswith(":"):
+                    continue
+                if value_candidate.lower() in _NOISE_LABELS:
+                    continue
+                if value_candidate.lower() in canonical_labels:
+                    continue
+                canonical = load_aliases().get(label_lower)
+                if canonical is None:
+                    continue
+                already_found = canonical in raw or any(
+                    load_aliases().get(k.lower()) == canonical for k in raw
+                )
+                if not already_found:
+                    raw[label_candidate] = value_candidate
+                    logger.debug(
+                        "_extract_fields_from_record: same-row — '%s': '%s'",
+                        label_candidate, value_candidate,
+                    )
+
+    # ── Phase 5 — Checkbox Yes/No table extraction ───────────────────────
+    # PPC checklists (NPO-CX-1.1 and similar) use a 5-column table:
+    #   col 0 = question text (long, with SOP guidance in subsequent lines)
+    #   col 1 = blank spacer
+    #   col 2 = Yes column  ← checkmark here when answer is Yes
+    #   col 3 = No column   ← checkmark here when answer is No
+    #   col 4 = Comments
+    #
+    # The label-value passes above miss these entirely because the question text
+    # and the checkmark live in separate cells with no "Label: value" pattern.
+    # This pass detects the column structure by locating "Yes"/"No" header cells,
+    # then reads raw cell content for checkbox sentinels on each data row.
+
+    _aliases_rev = load_aliases()  # {alias_lower → canonical}
+
+    for table in record.tables:
+        all_rows = ([table.headers] + table.rows) if table.headers else table.rows
+        if not all_rows:
+            continue
+
+        # Detect Yes/No column indices by scanning the first few rows.
+        # The header row may be row 0 or buried within the first 5 rows.
+        yes_col: int | None = None
+        no_col:  int | None = None
+        for scan_row in all_rows[:5]:
+            norm_cells = [normalize_text(str(c)).strip().lower() for c in scan_row]
+            if "yes" in norm_cells and "no" in norm_cells:
+                yes_col = norm_cells.index("yes")
+                no_col  = norm_cells.index("no")
+                break
+
+        if yes_col is None or no_col is None:
+            continue  # table does not have a Yes/No column structure
+
+        for row in all_rows:
+            if not row or len(row) <= max(yes_col, no_col):
+                continue
+
+            question_cell = str(row[0]) if row[0] else ""
+            if not question_cell.strip():
+                continue
+
+            # Check raw cell content for checkmarks BEFORE normalization.
+            # normalize_text may strip PUA characters like .
+            is_yes = _has_checkmark(str(row[yes_col])) if yes_col < len(row) else False
+            is_no  = _has_checkmark(str(row[no_col]))  if no_col  < len(row) else False
+
+            if not is_yes and not is_no:
+                continue  # no response marked for this question row
+
+            answer = "Yes" if is_yes else "No"
+
+            # Normalise question text and extract a short label for alias lookup
+            question_norm = normalize_text(question_cell).strip()
+            short_label   = _question_to_short_label(question_norm)
+
+            if len(short_label) < 3:
+                continue
+
+            # Three-tier alias resolution:
+            #  1. Short label (text before first '(' and '?')
+            #  2. Full first line (before any newline guidance text)
+            #  3. Substring scan — multi-word aliases (≥ 2 words) only,
+            #     scanned within the first 80 chars of the question stem.
+            #     Two-word minimum prevents single-word aliases like "services"
+            #     from matching unrelated rows (e.g. "Other attest services").
+            #     80-char window anchors to the question stem and prevents
+            #     long explanatory rows from matching via body text
+            #     (e.g. "Does staff fail to meet CPE ... Government Auditing
+            #     Standards" matching includes_gagas at char 83+).
+            canonical = _aliases_rev.get(short_label.lower())
+            if canonical is None:
+                first_line_lower = (
+                    question_norm.split("\n")[0].strip()
+                    .rstrip("?").rstrip(":").strip().lower()
+                )
+                canonical = _aliases_rev.get(first_line_lower)
+            if canonical is None:
+                q_lower = question_norm[:60].lower()
+                for variant, canon in sorted(
+                    _aliases_rev.items(), key=lambda x: -len(x[0])
+                ):
+                    if len(variant.split()) >= 2 and variant in q_lower:
+                        canonical = canon
+                        break
+
+            if canonical is None:
+                logger.debug(
+                    "_extract_fields_from_record: checkbox table — no alias "
+                    "match for %r (answer=%s)", short_label[:60], answer,
+                )
+                continue
+
+            # Only write if not already captured by an earlier extraction pass
+            already_found = canonical in raw or any(
+                _aliases_rev.get(k.lower()) == canonical for k in raw
+            )
+            if not already_found:
+                raw[canonical] = answer
+                logger.debug(
+                    "_extract_fields_from_record: checkbox table — "
+                    "'%s': '%s' (matched from %r)",
+                    canonical, answer, short_label[:60],
+                )
+
     resolved = resolve_aliases(raw)
     return {k: [v] for k, v in resolved.items() if v}
+
+
+def _checkbox_completion(record: "DocumentRecord") -> tuple[int, int]:
+    """
+    Count (checked_rows, question_rows) across all Yes/No assessment tables.
+
+    Used to detect blank templates — forms where the auditor never filled in
+    the checkboxes. A Yes/No table is identified by locating 'yes' and 'no'
+    cells in the first few rows (same detection as Phase 5).
+
+    Returns (checked, eligible) where:
+      checked  — rows with any checkmark in Yes or No column
+      eligible — rows with a non-empty question cell (col 0)
+    """
+    checked_total  = 0
+    eligible_total = 0
+
+    for table in record.tables:
+        all_rows = ([table.headers] + table.rows) if table.headers else table.rows
+        if not all_rows:
+            continue
+
+        yes_col: int | None = None
+        no_col:  int | None = None
+        for scan_row in all_rows[:5]:
+            norm_cells = [normalize_text(str(c)).strip().lower() for c in scan_row]
+            if "yes" in norm_cells and "no" in norm_cells:
+                yes_col = norm_cells.index("yes")
+                no_col  = norm_cells.index("no")
+                break
+
+        if yes_col is None or no_col is None:
+            continue
+
+        for row in all_rows:
+            if not row or len(row) <= max(yes_col, no_col):
+                continue
+            if not str(row[0]).strip():
+                continue
+            eligible_total += 1
+            is_yes = _has_checkmark(str(row[yes_col])) if yes_col < len(row) else False
+            is_no  = _has_checkmark(str(row[no_col]))  if no_col  < len(row) else False
+            if is_yes or is_no:
+                checked_total += 1
+
+    return checked_total, eligible_total
 
 
 # ---------------------------------------------------------------------------
@@ -606,6 +852,16 @@ def normalize_document(
 
     file_type = result.file_type
 
+    # 1b. Document classification — sets document_category before extraction
+    # so the LLM extractor and critical-fields tiebreaker can use the right
+    # prompt context. Runs on filename first (fast), then content if needed.
+    try:
+        from auditai_data_normalization.doc_classifier import detect_category
+        _doc_category = detect_category(path.name)
+    except Exception as _dce:
+        _doc_category = "unknown"
+        logger.debug("normalize: doc_classifier failed for %s — %s", path.name, _dce)
+
     # 2. Primary extraction
     try:
         record_a: DocumentRecord = _call_extractor(result.extractor, path)
@@ -624,6 +880,20 @@ def normalize_document(
         )
 
     primary_method = record_a.extraction_method
+
+    # Stamp document_category into metadata so all downstream steps can use it.
+    # If filename-only gave "unknown", retry with extracted text for content signals.
+    if not record_a.metadata.get("document_category"):
+        if _doc_category == "unknown" and record_a.cleaned_text:
+            try:
+                from auditai_data_normalization.doc_classifier import detect_category
+                _doc_category = detect_category(
+                    path.name,
+                    cleaned_text=record_a.cleaned_text[:800],
+                )
+            except Exception:
+                pass
+        record_a.metadata["document_category"] = _doc_category
 
     # 3. Parallel secondary extraction
     record_b: DocumentRecord | None = None
@@ -737,6 +1007,93 @@ def normalize_document(
                 logger.debug("LLM tiebreaker resolved %d fields", len(llm_tiebreaker_fields))
         except ImportError:
             logger.debug("LLM extractor not importable — skipping tiebreaker")
+
+    # 6b. Critical-fields completeness tiebreaker
+    # The tier-driven tiebreaker (step 6) only fires for fields already in
+    # fields_for_scoring with low confidence. It misses fields that were never
+    # found by any deterministic extractor — common for docx table layouts where
+    # "Organization:" and "Completed by:" cells don't produce key-value pairs.
+    #
+    # This step fires a targeted LLM call on any critical Tier 1 field that is
+    # completely absent from fields_for_scoring. Runs for engagement_form doc
+    # types where layout-driven extraction misses are most common.
+    # Fires regardless of overall confidence score.
+    _doc_type_meta = (
+        record_a.metadata.get("document_category") or
+        record_a.metadata.get("doc_type") or ""
+    )
+    _CRITICAL_T1_BY_DOCTYPE: dict[str, set[str]] = {
+        "engagement_form":    {"client_name", "includes_gagas", "includes_single_audit",
+                               "engagement_decision", "engagement_partner", "preparer_id",
+                               "audit_type", "reporting_framework"},
+        "planning_memo":      {"client_name", "engagement_partner", "includes_gagas",
+                               "audit_type"},
+    }
+    # For known doc types: use the defined critical set.
+    # For unknown/unclassified: fall back to all Tier 1 fields absent from
+    # fields_for_scoring — catches any doc where the deterministic extractors
+    # missed critical fields regardless of how the form is classified.
+    _known_critical = _CRITICAL_T1_BY_DOCTYPE.get(_doc_type_meta)
+    if _known_critical is not None:
+        _critical_absent = _known_critical - set(fields_for_scoring)
+    else:
+        _critical_absent = (tiers.tier1 - set(fields_for_scoring))
+
+    if _critical_absent:
+        try:
+            from auditai_data_normalization.extractors.llm_extractor import (
+                extract_fields as _extract_fields_critical,
+                is_available as _llm_available_critical,
+            )
+            if _llm_available_critical():
+                _critical_results = _extract_fields_critical(
+                    record_a.cleaned_text,
+                    fields_to_resolve=sorted(_critical_absent),
+                )
+                for _fname, _val in _critical_results.items():
+                    if _val and _val.lower() not in ("null", "none", ""):
+                        fields_for_scoring[_fname] = [None, None, _val]
+                        if _fname not in llm_tiebreaker_fields:
+                            llm_tiebreaker_fields.append(_fname)
+                llm_tiebreaker_ran = llm_tiebreaker_ran or bool(_critical_results)
+                logger.info(
+                    "normalize: critical-fields tiebreaker ran for %s (%s) — "
+                    "absent=%s found=%s",
+                    path.name, _doc_type_meta,
+                    sorted(_critical_absent),
+                    [k for k, v in _critical_results.items() if v and v.lower() not in ("null", "none", "")],
+                )
+        except ImportError:
+            logger.debug("normalize: critical-fields tiebreaker — llm_extractor not importable")
+
+    # 6c. audit_type synthesis from includes_* fields
+    # NPO-CX-1.1 has no dedicated "audit type" checkbox row — the type is
+    # inferred from the Q1 service-selection checkboxes (Q1a–Q1d). This pass
+    # runs after all LLM passes so it has the full field picture. Only fires
+    # when audit_type is completely absent from fields_for_scoring.
+    def _fv(fname: str) -> str | None:
+        """First non-None value across extractor slots for a field."""
+        return next(
+            (v for v in fields_for_scoring.get(fname, [None, None, None]) if v),
+            None,
+        )
+    if not any(_fv("audit_type") for _ in [1]):
+        _gagas = _fv("includes_gagas")
+        _gaas  = _fv("includes_gaas_audit")
+        _sa    = _fv("includes_single_audit")
+        _synth: list[str] = []
+        if str(_gagas).lower() in ("yes", "true"):
+            _synth.append("GAGAS Audit")
+        elif str(_gaas).lower() in ("yes", "true"):
+            _synth.append("Financial Statement Audit")
+        if str(_sa).lower() in ("yes", "true"):
+            _synth.append("Single Audit")
+        if _synth:
+            fields_for_scoring["audit_type"] = [None, None, " / ".join(_synth)]
+            logger.debug(
+                "normalize: audit_type synthesized from includes_* — %r",
+                fields_for_scoring["audit_type"][2],
+            )
 
     # 7. Confidence scoring (Phase A2 tier-based)
     per_field_scores = score_fields(fields_for_scoring) if fields_for_scoring else {}
@@ -891,6 +1248,21 @@ def normalize_document(
         "llm_tiebreaker_fields": llm_tiebreaker_fields,
         "llm_fallback_fields": llm_fallback_fields,
     }
+
+    # Incomplete template detection — engagement forms with zero checkbox responses.
+    # Blank templates have no audit decisions recorded and must not generate pairs.
+    # Runs after PII scrubbing so checkbox chars are still present in table cells.
+    _checked, _eligible = _checkbox_completion(record_a)
+    if _eligible > 0:
+        _completion_ratio = _checked / _eligible
+        record_a.metadata["checkbox_completion_ratio"] = round(_completion_ratio, 4)
+        if _doc_category == "engagement_form" and _eligible >= 5 and _checked == 0:
+            record_a.metadata["document_status"] = "incomplete_template"
+            logger.info(
+                "normalize_document: %s flagged as incomplete_template "
+                "(0 checked / %d eligible rows in Yes/No table)",
+                path.name, _eligible,
+            )
 
     logger.info(
         "normalize_document: %s type=%s ext_conf=%.3f "
