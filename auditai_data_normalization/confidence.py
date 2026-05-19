@@ -93,10 +93,17 @@ class TierConfig:
         Important fields. Contribute 30% of the base score.
     tier3 : frozenset[str]
         Informational fields. Zero weight, zero penalty.
+    pii_exempt : frozenset[str]
+        Fields whose values may be legitimately absent because they contain
+        PII that was scrubbed before upload. The form slot is structurally
+        guaranteed on PPC forms — absence means scrubbed, not incomplete.
+        These fields receive full confidence credit (1.0) regardless of
+        whether a value was extracted.
     """
     tier1: frozenset[str]
     tier2: frozenset[str]
     tier3: frozenset[str]
+    pii_exempt: frozenset[str] = field(default_factory=frozenset)
 
     def tier_of(self, field_name: str) -> str:
         """Return 'tier1', 'tier2', 'tier3', or 'unknown'."""
@@ -167,10 +174,25 @@ def load_tiers(yaml_path: str | Path | None = None) -> TierConfig:
                 names.add(item)
         return frozenset(names)
 
+    def _extract_pii_exempt(tier_list: list) -> frozenset[str]:
+        """Return field names that have pii_exempt: true in the YAML entry."""
+        names = set()
+        for item in (tier_list or []):
+            if isinstance(item, dict) and item.get("pii_exempt"):
+                names.add(item["field"])
+        return frozenset(names)
+
+    pii_exempt = (
+        _extract_pii_exempt(raw.get("tier1", []))
+        | _extract_pii_exempt(raw.get("tier2", []))
+        | _extract_pii_exempt(raw.get("tier3", []))
+    )
+
     config = TierConfig(
         tier1=_extract_fields(raw.get("tier1", [])),
         tier2=_extract_fields(raw.get("tier2", [])),
         tier3=_extract_fields(raw.get("tier3", [])),
+        pii_exempt=pii_exempt,
     )
 
     if yaml_path is None:
@@ -204,6 +226,12 @@ def _hardcoded_fallback_tiers() -> TierConfig:
             "ein",
             "includes_nonattest_services",
             "financial_statement_use",
+        }),
+        pii_exempt=frozenset({
+            "client_name",
+            "engagement_partner",
+            "ein",
+            "client_address",
         }),
         tier3=frozenset({
             # financial line items, tabular labels, extraction metadata
@@ -539,6 +567,12 @@ def score_record(
     tier1_total = len(tiers.tier1)
     tier2_total = len(tiers.tier2)
 
+    # pii_exempt fields with score 0.0 are treated as 1.0 for confidence
+    # purposes — the form slot is structurally guaranteed on PPC forms;
+    # absence means the value was pre-scrubbed, not that the field was missed.
+    def _effective(fname: str, score: float) -> float:
+        return 1.0 if score == 0.0 and fname in tiers.pii_exempt else score
+
     # Sum scores for each tier, count how many were found (score > 0)
     tier1_score_sum = 0.0
     tier1_found = 0
@@ -546,18 +580,29 @@ def score_record(
     tier2_found = 0
 
     for fname, score in per_field_scores.items():
+        eff = _effective(fname, score)
         if fname in tiers.tier1:
-            tier1_score_sum += score
-            if score > 0.0:
+            tier1_score_sum += eff
+            if eff > 0.0:
                 tier1_found += 1
         elif fname in tiers.tier2:
-            tier2_score_sum += score
-            if score > 0.0:
+            tier2_score_sum += eff
+            if eff > 0.0:
                 tier2_found += 1
         # tier3 and unknown: skip entirely
 
     # Fields not present in per_field_scores count as 0 (missing penalty)
     # — already handled by dividing by the full tier totals below.
+    # pii_exempt fields absent from per_field_scores entirely also get
+    # bumped: add them explicitly at score 1.0.
+    for fname in tiers.pii_exempt:
+        if fname not in per_field_scores:
+            if fname in tiers.tier1:
+                tier1_score_sum += 1.0
+                tier1_found += 1
+            elif fname in tiers.tier2:
+                tier2_score_sum += 1.0
+                tier2_found += 1
 
     t1_component = (tier1_score_sum / tier1_total) * _TIER1_WEIGHT if tier1_total else 0.0
     t2_component = (tier2_score_sum / tier2_total) * _TIER2_WEIGHT if tier2_total else 0.0
@@ -603,6 +648,7 @@ class ConfidenceSummary:
     fields_present: list[str] = field(default_factory=list)
     fields_missing: list[str] = field(default_factory=list)
     tier1_missing: list[str] = field(default_factory=list)
+    pii_exempt_scrubbed: list[str] = field(default_factory=list)
     low_confidence_fields: list[str] = field(default_factory=list)
 
     # Diagnostics
@@ -661,20 +707,34 @@ def summarise(
 
     aggregate = score_record(per_field_scores, tiers=tiers)
 
-    # Tier counts
+    # Tier counts — pii_exempt fields count as found regardless of extracted score
     tier1_found = sum(
-        1 for f, s in per_field_scores.items() if f in tiers.tier1 and s > 0.0
+        1 for f, s in per_field_scores.items()
+        if f in tiers.tier1 and (s > 0.0 or f in tiers.pii_exempt)
+    ) + sum(
+        1 for f in tiers.pii_exempt if f in tiers.tier1 and f not in per_field_scores
     )
     tier2_found = sum(
-        1 for f, s in per_field_scores.items() if f in tiers.tier2 and s > 0.0
+        1 for f, s in per_field_scores.items()
+        if f in tiers.tier2 and (s > 0.0 or f in tiers.pii_exempt)
+    ) + sum(
+        1 for f in tiers.pii_exempt if f in tiers.tier2 and f not in per_field_scores
     )
 
-    # Missing Tier 1 fields — potential audit deficiencies
-    # Includes fields in Tier 1 that weren't attempted at all
+    # pii_exempt fields with score 0.0 are scrubbed, not genuinely missing.
+    # Separate them from real deficiencies so tier1_missing only reflects
+    # fields that were actually skipped or left blank on the form.
     attempted = set(per_field_scores.keys())
+    pii_exempt_scrubbed = [
+        f for f in tiers.pii_exempt
+        if f not in attempted or per_field_scores.get(f, 0.0) == 0.0
+    ]
+    pii_exempt_scrubbed_set = set(pii_exempt_scrubbed)
+
     tier1_missing = [
         f for f in tiers.tier1
-        if f not in attempted or per_field_scores.get(f, 0.0) == 0.0
+        if f not in pii_exempt_scrubbed_set
+        and (f not in attempted or per_field_scores.get(f, 0.0) == 0.0)
     ]
 
     present = [f for f, s in per_field_scores.items() if s > 0.0]
@@ -713,6 +773,7 @@ def summarise(
         fields_present=present,
         fields_missing=missing,
         tier1_missing=tier1_missing,
+        pii_exempt_scrubbed=pii_exempt_scrubbed,
         low_confidence_fields=low_conf,
         floor_applied=floor_applied,
         extraction_gate=aggregate >= extraction_threshold,

@@ -81,6 +81,45 @@ for key, val in defaults.items():
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _review_score_stats(queue_path: Path) -> dict:
+    """
+    Read review_confidence from every pair in the queue and return
+    aggregated stats split by status.
+
+    Returns dict with keys: all, approved, pending — each a list of floats.
+    Returns empty lists if queue file doesn't exist or has no scores.
+    """
+    import json
+
+    buckets: dict[str, list[float]] = {"all": [], "approved": [], "pending": []}
+    if not queue_path.exists():
+        return buckets
+
+    with open(queue_path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # Queue format: {"pair": {..., "metadata": {...}}, "status": "pending", ...}
+            pair_data = entry.get("pair", entry)
+            score = pair_data.get("metadata", {}).get("review_confidence")
+            if score is None:
+                continue
+            score = float(score)
+            status = entry.get("status", "pending")
+            buckets["all"].append(score)
+            if status in ("approved", "conditional"):
+                buckets["approved"].append(score)
+            elif status == "pending":
+                buckets["pending"].append(score)
+
+    return buckets
+
+
 def _qdrant_chunk_count(collection_name: str) -> int:
     """
     Return number of vectors in the Qdrant collection.
@@ -206,6 +245,30 @@ with st.sidebar:
                                + queue_stats.get("conditional", 0))
     col2.metric("Needs rework",queue_stats.get("correction", 0))
     col1.metric("Rejected",    queue_stats["rejected"])
+
+    if st.button("Show avg review scores", key="score_stats_btn", use_container_width=True):
+        _scores = _review_score_stats(_QUEUE_PATH)
+
+        def _fmt(vals: list[float]) -> str:
+            if not vals:
+                return "—"
+            return f"{sum(vals) / len(vals):.3f}"
+
+        s_col1, s_col2, s_col3 = st.columns(3)
+        s_col1.metric("All",      _fmt(_scores["all"]),      help=f"{len(_scores['all'])} pairs")
+        s_col2.metric("Approved", _fmt(_scores["approved"]), help=f"{len(_scores['approved'])} pairs")
+        s_col3.metric("Pending",  _fmt(_scores["pending"]),  help=f"{len(_scores['pending'])} pairs")
+
+        if _scores["all"]:
+            import pandas as pd
+            _df = pd.DataFrame({"score": _scores["all"]})
+            _bins = [0.0, 0.5, 0.7, 0.85, 1.01]
+            _labels = ["0–0.5", "0.5–0.7", "0.7–0.85", "0.85–1.0"]
+            _df["bucket"] = pd.cut(_df["score"], bins=_bins, labels=_labels, right=False)
+            _dist = _df["bucket"].value_counts().reindex(_labels, fill_value=0)
+            st.bar_chart(_dist, height=120)
+        else:
+            st.caption("No scored pairs in queue yet.")
 
     st.divider()
     st.subheader("🏷️ Alias coverage")

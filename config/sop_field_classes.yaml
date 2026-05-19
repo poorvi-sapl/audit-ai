@@ -554,6 +554,33 @@ fields:
     retrieval_weight: null
     sampling_weight: null
 
+  # Preparer ID and Reviewer ID: form header sign-off fields. No SOP section
+  # reference exists (the SOP does not number these fields), but absence is a
+  # real documentation gap — the form cannot be attributed without them.
+  hdr_preparer_id:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: false
+    canonical_field: preparer_id
+    label: "Form Header — Preparer ID"
+    severity_default: Medium
+    sop_section_override: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
+  hdr_reviewer_id:
+    class: deficiency_eligible
+    deficiency_allowed: true
+    citation_allowed: false
+    canonical_field: reviewer_id
+    label: "Form Header — Reviewer ID"
+    severity_default: Medium
+    sop_section_override: null
+    client_type_overrides: null
+    retrieval_weight: null
+    sampling_weight: null
+
   # EIN: SOP-QM-001 never requires EIN documentation. informational_only prevents
   # findings and excludes it from deficiency sampling entirely.
   hdr_ein:

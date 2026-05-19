@@ -56,10 +56,13 @@ tier1:
 
   # Who is the client — fundamental to any workpaper
   - field: client_name
+    pii_exempt: true
     reason: >
       Every workpaper must identify the client. Missing client_name means
       the workpaper cannot be linked to an engagement. Tier 1 across all
       workpaper types.
+      pii_exempt: slot is structurally guaranteed on every PPC form — a
+      blank or pre-scrubbed value still proves the field was completed.
 
   # When does the engagement cover — defines the audit period
   - field: fiscal_year_end
@@ -76,6 +79,7 @@ tier1:
 
   # Who authorized the engagement — independence and authorization requirement
   - field: engagement_partner
+    pii_exempt: true
     reason: >
       The engagement partner's name or sign-off authorizes the engagement.
       Missing this is a professional standards deficiency (ET 1.110.010,
@@ -150,10 +154,13 @@ tier2:
 
   # EIN — identity verification
   - field: ein
+    pii_exempt: true
     reason: >
       Federal tax ID confirms entity identity. Important but not always
       on engagement forms. Tier 2 because client_name (Tier 1) is the
       primary identity field.
+      pii_exempt: EIN is sensitive PII — pre-scrubbed documents should
+      not be penalised for its absence.
 
   # Non-attest services — independence considerations
   - field: includes_nonattest_services
@@ -195,6 +202,7 @@ tier3:
   # --- Client context ---
   - field: client_type
   - field: client_address
+    pii_exempt: true
   - field: predecessor_auditor
 
   # --- Balance sheet — assets ---
