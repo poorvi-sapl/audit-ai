@@ -973,24 +973,6 @@ st.caption(
     "engine and PDF section detector."
 )
 
-# --- Source mode (existing engagement vs. new client upload) ---
-wp_mode = st.radio(
-    "Source",
-    options=["Existing engagement", "New client (upload PDF)"],
-    horizontal=True,
-    key="wp_mode",
-)
-
-engagement_options: list[str] = []
-if _ENGAGEMENTS_DIR.is_dir():
-    # Only require a PDF — the renderer always uses the canonical blank,
-    # so any .docx in the folder (historical workpaper, partially filled form, etc.)
-    # is intentionally ignored.
-    engagement_options = sorted(
-        p.name for p in _ENGAGEMENTS_DIR.iterdir()
-        if p.is_dir() and list(p.glob("*.pdf"))
-    )
-
 engagement_dir: Path | None = None
 new_client_name: str = ""
 new_client_pdf_bytes: bytes | None = None
@@ -999,33 +981,19 @@ new_client_pdf_filename: str | None = None
 col_sel1, col_sel2 = st.columns([2, 2])
 
 with col_sel1:
-    if wp_mode == "Existing engagement":
-        if engagement_options:
-            selected_engagement = st.selectbox(
-                "Engagement",
-                options=engagement_options,
-                help="Subfolder under 'Engagement Accept and Cont Form/' containing the client PDF + workpaper template.",
-                key="wp_engagement",
-            )
-            engagement_dir = _ENGAGEMENTS_DIR / selected_engagement
-        else:
-            st.info(
-                "No existing engagements found. Switch to 'New client' to upload a PDF."
-            )
-    else:
-        new_client_name = st.text_input(
-            "Client name",
-            help="A folder will be created under 'Engagement Accept and Cont Form/<ClientName>/'.",
-            key="wp_new_client_name",
-        )
-        uploaded_pdf = st.file_uploader(
-            "Upload PY audit report PDF",
-            type=["pdf"],
-            key="wp_new_pdf",
-        )
-        if uploaded_pdf is not None:
-            new_client_pdf_bytes = uploaded_pdf.getvalue()
-            new_client_pdf_filename = uploaded_pdf.name
+    new_client_name = st.text_input(
+        "Client name",
+        help="A folder will be created under 'Engagement Accept and Cont Form/<ClientName>/'.",
+        key="wp_new_client_name",
+    )
+    uploaded_pdf = st.file_uploader(
+        "Upload PY audit report PDF",
+        type=["pdf"],
+        key="wp_new_pdf",
+    )
+    if uploaded_pdf is not None:
+        new_client_pdf_bytes = uploaded_pdf.getvalue()
+        new_client_pdf_filename = uploaded_pdf.name
 
 with col_sel2:
     engagement_type_label = st.radio(
@@ -1040,14 +1008,7 @@ engagement_type = (
     ENGAGEMENT_RECURRING if engagement_type_label == "Recurring" else ENGAGEMENT_INITIAL
 )
 
-if engagement_dir is not None:
-    pdfs = list(engagement_dir.glob("*.pdf"))
-    if pdfs:
-        st.caption(
-            f"PDF: `{pdfs[0].name}` · "
-            f"Template: canonical blank ({CANONICAL_BLANK_TEMPLATE.name})"
-        )
-elif wp_mode == "New client (upload PDF)" and new_client_pdf_filename:
+if new_client_pdf_filename:
     st.caption(
         f"PDF: `{new_client_pdf_filename}` · "
         f"Template: canonical blank ({CANONICAL_BLANK_TEMPLATE.name})"
@@ -1093,13 +1054,7 @@ if True:
             )
 
     # Decide whether the user has provided enough input to generate.
-    is_existing_ready = (wp_mode == "Existing engagement" and engagement_dir is not None)
-    is_new_ready = (
-        wp_mode == "New client (upload PDF)"
-        and bool(new_client_name.strip())
-        and new_client_pdf_bytes is not None
-    )
-    generate_enabled = is_existing_ready or is_new_ready
+    generate_enabled = bool(new_client_name.strip()) and new_client_pdf_bytes is not None
 
     if st.button(
         "🧾 Generate workpaper",
@@ -1108,7 +1063,7 @@ if True:
         disabled=not generate_enabled,
         help=(
             None if generate_enabled
-            else "Provide client name + PDF (new client) or pick an existing engagement."
+            else "Provide a client name and upload a PY audit report PDF."
         ),
     ):
         auditor_inputs: dict = {}
@@ -1123,18 +1078,17 @@ if True:
         if in_q2j_remark: auditor_inputs["pii_q2_j"] = in_q2j_remark
         if in_org_override: auditor_inputs["organization_name"] = in_org_override
 
-        # If new client, register first (creates folder + seeds PDF + blank template)
-        if wp_mode == "New client (upload PDF)":
-            try:
-                engagement_dir = register_new_client(
-                    client_name=new_client_name.strip(),
-                    pdf_bytes=new_client_pdf_bytes,
-                    pdf_filename=new_client_pdf_filename,
-                )
-                st.info(f"Registered new engagement folder: `{engagement_dir}`")
-            except (FileNotFoundError, ValueError) as e:
-                st.error(f"Could not register client: {e}")
-                st.stop()
+        # Register the client (creates folder + seeds PDF).
+        try:
+            engagement_dir = register_new_client(
+                client_name=new_client_name.strip(),
+                pdf_bytes=new_client_pdf_bytes,
+                pdf_filename=new_client_pdf_filename,
+            )
+            st.info(f"Registered engagement folder: `{engagement_dir}`")
+        except (FileNotFoundError, ValueError) as e:
+            st.error(f"Could not register client: {e}")
+            st.stop()
 
         with st.spinner("Running detector + rule engine + renderer..."):
             result = run_engagement(
@@ -1179,7 +1133,7 @@ if True:
         # Key resolved values
         st.subheader("Key resolved fields")
         q_rows = []
-        for fid in ["q1_c", "q1_d", "q2", "acceptance_decision"]:
+        for fid in ["q1_a", "q1_b", "q1_c", "q1_d", "q1_f", "q2", "acceptance_decision"]:
             rf = result.resolved.get(fid)
             if rf:
                 q_rows.append({
