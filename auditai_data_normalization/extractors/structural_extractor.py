@@ -53,6 +53,25 @@ Caller integration (normalize.py)
     Results merged into fields_for_scoring slot B if slot B is empty.
     extraction_method gains 'structural_heuristic' tag.
     Never overwrites deterministic extractor values.
+
+Char-level provenance (Phase 1A)
+---------------------------------
+    FieldEvidence carries optional `char_start`, `char_end`, and
+    `full_quoted_text` for char-precise citations. They are populated
+    by `_locate_value_in_page(page_text, value)` at each match site
+    that has a single locatable value (salutation entity, salutation
+    city, signoff date, fiscal year date). The prose-flag site keeps
+    sentinel offsets because keyword-counting has no single match
+    point. The generation contract's adapter
+    (`field_evidence_adapter`) honors real offsets when present and
+    falls back to page-level provenance + `anchor` otherwise.
+
+    TODO: Apply the same `_locate_value_in_page` pattern to the other
+    deterministic extractors (pdf_text_extractor, docx_extractor,
+    ocr_extractor, csv_extractor, xlsx_extractor, json_extractor) as
+    a follow-up Phase 1A.x iteration. The LLM extractor does not get
+    char offsets by design — it processes plain text without page
+    boundaries.
 """
 
 from __future__ import annotations
@@ -77,6 +96,12 @@ METHOD_REGISTRY          = "registry"           # known-firm registry lookup
 # FieldEvidence — carries value + how we got it
 # ---------------------------------------------------------------------------
 
+# Sentinel for char_start / char_end when char-level offsets are unavailable.
+# Re-exported here (mirrors generation_contract.CHAR_OFFSET_UNAVAILABLE) so
+# existing extractor code does not need to import the contract directly.
+CHAR_OFFSET_UNAVAILABLE: int = -1
+
+
 @dataclass
 class FieldEvidence:
     """
@@ -84,23 +109,96 @@ class FieldEvidence:
 
     Attributes
     ----------
-    value       : str   — the extracted value, normalized
-    confidence  : float — [0.0, 1.0], evidence-based not threshold-tuned
-    source_page : int   — 1-based page number where value was found
-    method      : str   — which METHOD_* rule produced this
-    anchor      : str   — the anchor text that located the segment
+    value             : str   — the extracted value, normalized
+    confidence        : float — [0.0, 1.0], evidence-based not threshold-tuned
+    source_page       : int   — 1-based page number where value was found
+    method            : str   — which METHOD_* rule produced this
+    anchor            : str   — short anchor text that located the segment
+    char_start        : int   — char offset within pages_text[source_page-1]
+                                where the value starts, or CHAR_OFFSET_UNAVAILABLE
+                                when the extractor cannot supply char-level
+                                offsets (page-level provenance only).
+    char_end          : int   — char offset (exclusive), or sentinel.
+    full_quoted_text  : str   — match value + up to ~7 words of context on
+                                each side, clipped at line boundaries.
+                                Empty string means caller should fall back
+                                to `anchor` for citation text.
     """
-    value:       str
-    confidence:  float
-    source_page: int
-    method:      str
-    anchor:      str = ""
+    value:            str
+    confidence:       float
+    source_page:      int
+    method:           str
+    anchor:           str = ""
+    char_start:       int = CHAR_OFFSET_UNAVAILABLE
+    char_end:         int = CHAR_OFFSET_UNAVAILABLE
+    full_quoted_text: str = ""
+
+    @property
+    def has_char_offsets(self) -> bool:
+        return (
+            self.char_start != CHAR_OFFSET_UNAVAILABLE
+            and self.char_end != CHAR_OFFSET_UNAVAILABLE
+        )
 
     def __repr__(self) -> str:
+        loc = (
+            f"chars[{self.char_start}:{self.char_end}]"
+            if self.has_char_offsets else "page-only"
+        )
         return (
             f"FieldEvidence({self.value!r} conf={self.confidence:.2f} "
-            f"p{self.source_page} method={self.method})"
+            f"p{self.source_page} {loc} method={self.method})"
         )
+
+
+def _locate_value_in_page(
+    page_text: str,
+    value: str,
+    context_words: int = 7,
+) -> tuple[int, int, str]:
+    """Locate `value` within `page_text` and build a quoted context window.
+
+    Returns (char_start, char_end, full_quoted_text):
+      - char_start, char_end : byte offsets into page_text where value lives
+      - full_quoted_text     : value plus up to `context_words` words of
+                               context on each side, clipped at line
+                               boundaries (newlines).
+
+    If value is not found verbatim in page_text (e.g., value was normalized
+    after extraction), returns (CHAR_OFFSET_UNAVAILABLE, CHAR_OFFSET_UNAVAILABLE,
+    value) so the citation degrades gracefully.
+
+    First occurrence wins on duplicates — that's typically the correct
+    choice for the single-value extractions structural_extractor performs.
+    """
+    if not value or not page_text:
+        return (CHAR_OFFSET_UNAVAILABLE, CHAR_OFFSET_UNAVAILABLE, value or "")
+
+    idx = page_text.find(value)
+    if idx < 0:
+        return (CHAR_OFFSET_UNAVAILABLE, CHAR_OFFSET_UNAVAILABLE, value)
+
+    char_end = idx + len(value)
+
+    # Clip context to current line (newline boundaries)
+    line_start = page_text.rfind("\n", 0, idx) + 1
+    next_nl = page_text.find("\n", char_end)
+    line_end = next_nl if next_nl >= 0 else len(page_text)
+
+    before_in_line = page_text[line_start:idx]
+    after_in_line = page_text[char_end:line_end]
+
+    before_words = before_in_line.split()[-context_words:]
+    after_words = after_in_line.split()[:context_words]
+
+    parts: list[str] = []
+    if before_words:
+        parts.append(" ".join(before_words))
+    parts.append(value)
+    if after_words:
+        parts.append(" ".join(after_words))
+
+    return (idx, char_end, " ".join(parts))
 
 
 # ---------------------------------------------------------------------------
@@ -338,20 +436,32 @@ def _infer_from_auditor_report(
             city   = next6[sal_idx + 2] if sal_idx + 2 < len(next6) else ""
 
             if entity and not _SUPPLEMENT_HEADER_RE.match(entity):
+                _cs, _ce, _quoted = _locate_value_in_page(
+                    pages_text[page_num - 1], entity,
+                )
                 results["client_name"] = FieldEvidence(
                     value=entity,
                     confidence=0.85,
                     source_page=page_num,
                     method=METHOD_SALUTATION_BLOCK,
                     anchor=line,
+                    char_start=_cs,
+                    char_end=_ce,
+                    full_quoted_text=_quoted,
                 )
             if city and _CITY_STATE_RE.match(city):
+                _cs, _ce, _quoted = _locate_value_in_page(
+                    pages_text[page_num - 1], city,
+                )
                 results["client_address"] = FieldEvidence(
                     value=city,
                     confidence=0.80,
                     source_page=page_num,
                     method=METHOD_SALUTATION_BLOCK,
                     anchor=line,
+                    char_start=_cs,
+                    char_end=_ce,
+                    full_quoted_text=_quoted,
                 )
             break
         if "client_name" in results:
@@ -366,12 +476,19 @@ def _infer_from_auditor_report(
             if m and len(line) < 40:
                 # Confidence: shorter line = less likely to be prose sentence
                 conf = 0.85 if len(line) < 25 else 0.72
+                date_val = m.group(0).strip()
+                _cs, _ce, _quoted = _locate_value_in_page(
+                    pages_text[page_num - 1], date_val,
+                )
                 results["partner_sign_date"] = FieldEvidence(
-                    value=m.group(0).strip(),
+                    value=date_val,
                     confidence=conf,
                     source_page=page_num,
                     method=METHOD_SIGNOFF_DATE,
                     anchor="auditor_report_close",
+                    char_start=_cs,
+                    char_end=_ce,
+                    full_quoted_text=_quoted,
                 )
                 break
         if "partner_sign_date" in results:
@@ -459,12 +576,18 @@ def _infer_fiscal_year_end(pages_text: list[str]) -> FieldEvidence | None:
     if best_score < _MIN_CONFIDENCE:
         return None
 
+    _cs, _ce, _quoted = _locate_value_in_page(
+        pages_text[best_page - 1], best_val,
+    )
     return FieldEvidence(
         value=best_val,
         confidence=best_score,
         source_page=best_page,
         method=METHOD_STANDALONE_DATE,
         anchor="cover_page_date",
+        char_start=_cs,
+        char_end=_ce,
+        full_quoted_text=_quoted,
     )
 
 

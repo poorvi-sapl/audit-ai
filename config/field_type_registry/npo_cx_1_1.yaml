@@ -1,0 +1,230 @@
+# Field-type registry for NPO-CX-1.1 (engagement acceptance — nonprofit)
+# =======================================================================
+# Sourced from config/npo_cx_1_1_manifest.yaml
+#
+# Conventions:
+# - Hybrid `yes_no_with_X` manifest fields are SPLIT here into two
+#   registered fields:
+#     <field_id>           → boolean   (the Yes/No answer)
+#     <field_id>_<suffix>  → text or categorical (the associated
+#                              specification / text / reference / remark)
+#   Suffix convention: matches the manifest input_type semantics —
+#     yes_no_with_specification     → <id>_specification
+#     yes_no_with_text              → <id>_text
+#     yes_no_with_reference         → <id>_reference
+#     yes_no_with_mandatory_remark  → <id>_remark
+#
+# - `acceptance_decision` is EXCLUDED — it is derived by the rule
+#   engine (workpaper_generator/rule_engine.py) from other field
+#   values, not extracted from source documents. The registry covers
+#   extracted/captured fields only.
+#
+# - Categorical fields carry `allowed_values` matching the manifest's
+#   `options` / `specification_options` lists. Values must match
+#   exactly (including whitespace and punctuation).
+
+workpaper_type: NPO-CX-1.1
+
+fields:
+
+  # ──────────────────────────────────────────────────────────────────
+  # Header (manual_entry from auditor)
+  # ──────────────────────────────────────────────────────────────────
+  organization_name:
+    type: text
+  financial_position_date:
+    type: date
+  completed_by:
+    type: text
+  completion_date:
+    type: date
+
+  # ──────────────────────────────────────────────────────────────────
+  # Engagement type (auditor_selection, drives Part II behavior)
+  # ──────────────────────────────────────────────────────────────────
+  engagement_type:
+    type: categorical
+    allowed_values:
+      - "Initial / 1st Year"
+      - "Recurring / 2nd Year or Subsequent"
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q1 sub-fields (Services desired)
+  # ──────────────────────────────────────────────────────────────────
+  q1_a:
+    type: categorical
+    allowed_values:
+      - "Accrual / GAAP"
+      - "Cash Basis"
+      - "Other"
+
+  q1_b:
+    type: categorical
+    allowed_values:
+      - "2 CFR Part 200 – Uniform Guidance"
+      - "Other"
+
+  q1_c:
+    type: boolean
+  q1_d:
+    type: boolean
+  q1_e:
+    type: boolean
+
+  # q1_f: yes_no_with_specification → split into boolean + categorical
+  q1_f:
+    type: boolean
+  q1_f_specification:
+    type: categorical
+    allowed_values:
+      - "Form 990"
+      - "Form 990-PF"
+      - "Form 199"
+      - "Form RRF-1"
+
+  # q1_g: yes_no_with_text → split into boolean + text
+  q1_g:
+    type: boolean
+  q1_g_text:
+    type: text
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q2 (Non-attest services)
+  # q2: yes_no_with_reference → split into boolean + categorical
+  # ──────────────────────────────────────────────────────────────────
+  q2:
+    type: boolean
+  q2_reference:
+    type: categorical
+    allowed_values:
+      - "NPO CX-1.2"
+      - "NPO CX-1.3"
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q3 (Intended use of FS)
+  # ──────────────────────────────────────────────────────────────────
+  q3:
+    type: text
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q4 (Financial reporting framework)
+  # ──────────────────────────────────────────────────────────────────
+  q4:
+    type: boolean
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q5 sub-fields (Management refusals)
+  # Each q5_X: yes_no_with_text → split into boolean + text
+  # ──────────────────────────────────────────────────────────────────
+  q5_a:
+    type: boolean
+  q5_a_text:
+    type: text
+  q5_b:
+    type: boolean
+  q5_b_text:
+    type: text
+  q5_c:
+    type: boolean
+  q5_c_text:
+    type: text
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q6 (Firm competence) and sub-fields
+  # ──────────────────────────────────────────────────────────────────
+  q6:
+    type: boolean
+  q6_a:
+    type: boolean
+  q6_b:
+    type: boolean
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q7 through Q9 (with Q9 sub-fields)
+  # ──────────────────────────────────────────────────────────────────
+  q7:
+    type: boolean
+  q8:
+    type: boolean
+  q9:
+    type: boolean
+  q9_a:
+    type: boolean
+  q9_b:
+    type: boolean
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part I — Q10 through Q16
+  # ──────────────────────────────────────────────────────────────────
+  q10:
+    type: boolean
+  q11:
+    type: boolean
+  q12:
+    type: boolean
+  q13:
+    type: boolean
+  q14:
+    type: boolean
+  q15:
+    type: boolean
+  q16:
+    type: boolean
+
+  # ──────────────────────────────────────────────────────────────────
+  # Sign-off block
+  # ──────────────────────────────────────────────────────────────────
+  engagement_partner:
+    type: text
+  concurring_partner:
+    type: text
+  sign_off_date:
+    type: date
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part II — pii_q1
+  # ──────────────────────────────────────────────────────────────────
+  pii_q1:
+    type: boolean
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part II — pii_q2 sub-fields
+  # pii_q2_j: yes_no_with_mandatory_remark → split into boolean + text
+  # ──────────────────────────────────────────────────────────────────
+  pii_q2_a:
+    type: boolean
+  pii_q2_b:
+    type: boolean
+  pii_q2_c:
+    type: boolean
+  pii_q2_d:
+    type: boolean
+  pii_q2_e:
+    type: boolean
+  pii_q2_f:
+    type: boolean
+  pii_q2_g:
+    type: boolean
+  pii_q2_h:
+    type: boolean
+  pii_q2_i:
+    type: boolean
+  pii_q2_j:
+    type: boolean
+  pii_q2_j_remark:
+    type: text
+
+  # ──────────────────────────────────────────────────────────────────
+  # Part II — pii_q3, pii_q4
+  # ──────────────────────────────────────────────────────────────────
+  pii_q3:
+    type: boolean
+  pii_q4:
+    type: boolean
+
+# ──────────────────────────────────────────────────────────────────────
+# EXCLUDED from registry (derived, not extracted):
+# - acceptance_decision : computed by workpaper_generator/rule_engine.py
+#                         from q4 + q5_a/b/c + q6/a/b + q7 + q8 + q9/a/b
+#                         + q10 + q11
+# ──────────────────────────────────────────────────────────────────────

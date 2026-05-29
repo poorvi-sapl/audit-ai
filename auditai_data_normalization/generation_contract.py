@@ -23,6 +23,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
+# Sentinel value for SourceCitation.char_start / char_end when an
+# extractor cannot supply char-level offsets (page-level provenance only).
+# As extractors gain char-level tracking, they should populate real
+# offsets and stop using this sentinel.
+CHAR_OFFSET_UNAVAILABLE: int = -1
+
+# Sentinel value for SourceCitation.page when the extractor processes
+# plain text without page boundaries (e.g., the LLM extractor receives
+# cleaned_text and cannot attribute a value to a specific page).
+# Page numbers throughout the codebase are 1-based; 0 is safe as
+# out-of-range marker.
+PAGE_UNKNOWN: int = 0
+
 
 # ---------------------------------------------------------------------
 # Source citation — points to a specific location in a source document
@@ -36,13 +49,37 @@ class SourceCitation:
     client name appears in the engagement letter AND the prior-year
     file). Each citation is granular enough to render as a footnote
     in the generated workpaper.
+
+    Offset convention
+    -----------------
+    char_start / char_end are byte offsets within the per-page text
+    for the named document — i.e., offsets into `pages_text[page-1]`
+    where `pages_text` is the extracted text for this document. They
+    are NOT offsets into a concatenated cleaned_text. This convention
+    lets a renderer highlight the exact span by doing
+    `pages_text[page-1][char_start:char_end]`.
+
+    If an extractor cannot supply char-level offsets (page-level
+    provenance only), set char_start and char_end to
+    CHAR_OFFSET_UNAVAILABLE (-1) and put the best available snippet
+    in quoted_text. If the page is also unknown (e.g., LLM extraction
+    on cleaned text without page boundaries), use PAGE_UNKNOWN (0).
+    The renderer should treat sentinel-valued citations as approximate
+    and surface them visually.
     """
     document_path: str            # path or URI to source document
     document_type: str            # 'engagement_letter' | 'prior_year_file' | etc
     page: int                     # 1-based page number
-    char_start: int               # char offset in extracted text (0-based)
-    char_end: int                 # exclusive
+    char_start: int               # char offset in extracted text (0-based) or -1
+    char_end: int                 # exclusive, or -1
     quoted_text: str              # exact source text supporting the value
+
+    @property
+    def has_char_offsets(self) -> bool:
+        return (
+            self.char_start != CHAR_OFFSET_UNAVAILABLE
+            and self.char_end != CHAR_OFFSET_UNAVAILABLE
+        )
 
     def render_citation(self) -> str:
         return f"[{self.document_type} p.{self.page}]"

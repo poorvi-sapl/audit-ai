@@ -430,3 +430,358 @@ def extract_fields_from_record(
         logger.warning("llm_extractor: %s pii_scrubbed=False — refusing", record.file_name)
         return {}
     return extract_fields(record.cleaned_text, fields_to_resolve)
+
+
+# ===========================================================================
+# Contract-shape API — produces ExtractedFact directly
+# ===========================================================================
+#
+# These functions are the contract-compliant counterparts to the legacy
+# extract_fields / extract_all_fields above. They enforce the no-LLM-numbers
+# rule structurally:
+#   1. Pre-filter: forbidden field types (numeric/date/id) are dropped
+#      from the field list before the prompt is built. The LLM is never
+#      asked to produce them.
+#   2. Defense-in-depth: ExtractedFact.__post_init__ raises if a forbidden
+#      type somehow slips through.
+#
+# The legacy functions above remain available for the existing pipeline.
+# ===========================================================================
+
+
+def _llm_chat_response_json(prompt: str, num_predict: int = 1024) -> str:
+    """Wrap ollama.chat for testability.
+
+    Returns the raw response content string (caller parses JSON).
+    Tests patch this helper to avoid requiring a live Ollama service.
+    """
+    import ollama
+    resp = ollama.chat(
+        model=_MODEL,
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        options={"temperature": _TEMPERATURE, "num_predict": num_predict},
+        format="json",
+    )
+    return resp["message"]["content"]
+
+
+def _build_facts_prompt(text: str, field_ids: list[str], workpaper_type: str) -> str:
+    """Build the prompt for contract-shape extraction.
+
+    Simpler than the legacy fallback prompt — uses registry field_ids
+    directly, with no doc-type-specific label hints. Prompt richness
+    is sacrificed for vocabulary purity; label hints can be added back
+    later as an enrichment if accuracy demands it.
+    """
+    words = text.split()
+    if len(words) > _MAX_WORDS_FALLBACK:
+        text = " ".join(words[:_MAX_WORDS_FALLBACK]) + "\n[... truncated ...]"
+
+    fields_block = "\n".join(f'  "{fid}": null' for fid in field_ids)
+    example = json.dumps({
+        "_example": {
+            "value": "extracted string or null",
+            "confident": True,
+            "source_hint": "3-10 words from the document"
+        }
+    }, indent=2)
+
+    return (
+        f"You are extracting fields from an audit workpaper of type "
+        f"{workpaper_type}.\n\n"
+        f"FIELDS TO EXTRACT (return each as a JSON object):\n"
+        f"{{\n{fields_block}\n}}\n\n"
+        f"RESPONSE FORMAT for each field:\n{example}\n\n"
+        f"Rules:\n"
+        f"- value: the extracted string, or null if not found in the document\n"
+        f"- confident: true if clearly stated in the document, false if uncertain\n"
+        f"- source_hint: 3-10 words from the document that support the value\n"
+        f"- Do NOT guess or invent values not in the document\n\n"
+        f"DOCUMENT TEXT:\n{text}\n\n"
+        f"Return ONLY the JSON object."
+    )
+
+
+def _filter_llm_allowed(
+    field_ids: list[str], workpaper_type: str,
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Filter field_ids to only those the LLM is allowed to extract.
+
+    Returns:
+        (allowed_field_ids, dropped_with_reason) where dropped_with_reason
+        is a list of (field_id, field_type) for fields that were filtered
+        out because their type is in LLM_FORBIDDEN_FIELD_TYPES.
+
+    Unknown field_ids (not in the registry) are passed through unchanged —
+    the caller is responsible for them; the registry-keyed code path will
+    skip them downstream.
+    """
+    from auditai_data_normalization.field_type_registry import (
+        get_field_spec, load_registry,
+    )
+    from auditai_data_normalization.generation_contract import (
+        LLM_FORBIDDEN_FIELD_TYPES,
+    )
+
+    try:
+        registry = load_registry(workpaper_type)
+    except FileNotFoundError:
+        logger.warning(
+            "llm_extractor: no registry for workpaper %r — passing all "
+            "field_ids through without filtering. The no-LLM rule will "
+            "still be enforced by ExtractedFact.__post_init__ if a "
+            "forbidden type is constructed.",
+            workpaper_type,
+        )
+        return list(field_ids), []
+
+    allowed: list[str] = []
+    dropped: list[tuple[str, str]] = []
+    for fid in field_ids:
+        spec = registry.get(fid)
+        if spec is None:
+            allowed.append(fid)
+            continue
+        if spec.field_type in LLM_FORBIDDEN_FIELD_TYPES:
+            dropped.append((fid, spec.field_type))
+        else:
+            allowed.append(fid)
+
+    if dropped:
+        logger.warning(
+            "llm_extractor: dropped %d field(s) from LLM extraction due "
+            "to no-LLM-numbers rule (numeric/date/id types must come "
+            "from deterministic extractors): %s",
+            len(dropped),
+            ", ".join(f"{fid}({ftype})" for fid, ftype in dropped),
+        )
+    return allowed, dropped
+
+
+def _raw_field_result_to_fact(
+    field_id: str,
+    raw: dict | str | None,
+    workpaper_type: str,
+    document_path: str,
+    document_type: str,
+) -> "ExtractedFact | None":
+    """Convert one raw LLM result (parsed JSON entry) into an ExtractedFact.
+
+    Returns None if the result indicates the field was not found.
+    Raises ValueError (via ExtractedFact.__post_init__) if the field
+    type is in LLM_FORBIDDEN_FIELD_TYPES — defense-in-depth guard.
+    """
+    from auditai_data_normalization.field_type_registry import get_field_spec
+    from auditai_data_normalization.generation_contract import (
+        CHAR_OFFSET_UNAVAILABLE, PAGE_UNKNOWN, ExtractedFact, SourceCitation,
+    )
+
+    # Normalize the raw value into (value_str, source_hint)
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        val = raw.get("value")
+        value_str = "" if val is None else str(val).strip()
+        source_hint = str(raw.get("source_hint", "")).strip()[:200]
+    else:
+        value_str = str(raw).strip()
+        source_hint = ""
+
+    if not value_str:
+        return None
+
+    spec = get_field_spec(workpaper_type, field_id)
+    citation = SourceCitation(
+        document_path=document_path,
+        document_type=document_type,
+        page=PAGE_UNKNOWN,
+        char_start=CHAR_OFFSET_UNAVAILABLE,
+        char_end=CHAR_OFFSET_UNAVAILABLE,
+        quoted_text=source_hint,
+    )
+    return ExtractedFact(
+        field_id=field_id,
+        field_type=spec.field_type,
+        value=value_str,
+        confidence=0.65,  # LLM extractions default to mid confidence
+        sources=[citation],
+        extractor_method="llm_extraction",
+        notes=(
+            "LLM-sourced; page unknown, char offsets unavailable"
+            if source_hint
+            else "LLM-sourced; page unknown, no source_hint provided"
+        ),
+    )
+
+
+def extract_all_fields_as_facts(
+    text: str,
+    workpaper_type: str,
+    field_ids: list[str],
+    document_path: str,
+    document_type: str,
+) -> "dict[str, ExtractedFact]":
+    """Contract-shape fallback extraction.
+
+    Like extract_all_fields, but:
+      - Takes registry field_ids (not legacy semantic names)
+      - Pre-filters forbidden types (numeric/date/id) per no-LLM rule
+      - Returns dict[field_id, ExtractedFact] with full provenance
+      - Defense-in-depth: ExtractedFact construction re-validates the rule
+
+    Args:
+        text: pii-scrubbed cleaned text from the source document
+        workpaper_type: e.g. "NPO-CX-1.1" — drives registry lookup
+        field_ids: registry field_ids to attempt extraction for
+        document_path: path/URI of the source document (for provenance)
+        document_type: logical document type (e.g. "engagement_letter")
+
+    Returns:
+        Dict of {field_id: ExtractedFact} for fields the LLM produced
+        non-empty values for. Fields filtered by the no-LLM rule and
+        fields the LLM did not find are absent from the returned dict.
+    """
+    from auditai_data_normalization.generation_contract import ExtractedFact
+
+    if not text or not text.strip():
+        return {}
+
+    allowed_field_ids, _dropped = _filter_llm_allowed(field_ids, workpaper_type)
+    if not allowed_field_ids:
+        logger.info(
+            "llm_extractor.extract_all_fields_as_facts: no fields remain "
+            "after no-LLM filtering — returning empty."
+        )
+        return {}
+
+    if not is_available():
+        logger.warning(
+            "llm_extractor: Ollama unavailable — extract_all_fields_as_facts "
+            "skipped."
+        )
+        return {}
+
+    prompt = _build_facts_prompt(text, allowed_field_ids, workpaper_type)
+
+    try:
+        raw_content = _llm_chat_response_json(prompt, num_predict=2048)
+    except Exception as e:
+        logger.warning("llm_extractor.extract_all_fields_as_facts: %s", e)
+        return {}
+
+    parsed = _parse_fallback_response(raw_content, allowed_field_ids)
+
+    facts: dict[str, ExtractedFact] = {}
+    for fid, field_result in parsed.items():
+        if not field_result.found:
+            continue
+        raw_for_conversion: dict = {
+            "value": field_result.value,
+            "source_hint": field_result.source_hint,
+        }
+        try:
+            fact = _raw_field_result_to_fact(
+                field_id=fid,
+                raw=raw_for_conversion,
+                workpaper_type=workpaper_type,
+                document_path=document_path,
+                document_type=document_type,
+            )
+        except (KeyError, ValueError) as e:
+            # KeyError: fid not in registry — drop silently
+            # ValueError: __post_init__ caught a forbidden-type construction
+            #   (should not happen because we pre-filtered; surface loudly)
+            logger.warning(
+                "llm_extractor: skipping field %r — %s", fid, e,
+            )
+            continue
+        if fact is not None:
+            facts[fid] = fact
+
+    return facts
+
+
+def extract_fields_as_facts(
+    text: str,
+    workpaper_type: str,
+    fields_to_resolve: list[str],
+    document_path: str,
+    document_type: str,
+) -> "dict[str, ExtractedFact]":
+    """Contract-shape tiebreaker extraction.
+
+    Used when deterministic extractors disagree on specific fields and
+    the LLM is consulted to break the tie. Same no-LLM-numbers
+    enforcement as extract_all_fields_as_facts — if a tied field is
+    numeric/date/id, the LLM is NOT consulted and that field is absent
+    from the returned dict (caller's existing deterministic value stands).
+
+    Args:
+        text: pii-scrubbed cleaned text
+        workpaper_type: e.g. "NPO-CX-1.1"
+        fields_to_resolve: registry field_ids the deterministic stack
+                           could not agree on
+        document_path / document_type: provenance context
+
+    Returns:
+        Dict of {field_id: ExtractedFact} for tied fields the LLM
+        resolved with non-empty values. LLM-forbidden field types are
+        filtered out and absent from the returned dict.
+    """
+    from auditai_data_normalization.generation_contract import ExtractedFact
+
+    if not text or not text.strip() or not fields_to_resolve:
+        return {}
+
+    allowed_field_ids, _dropped = _filter_llm_allowed(
+        fields_to_resolve, workpaper_type,
+    )
+    if not allowed_field_ids:
+        return {}
+
+    if not is_available():
+        logger.warning(
+            "llm_extractor: Ollama unavailable — extract_fields_as_facts skipped."
+        )
+        return {}
+
+    # Reuse the simple facts prompt — for tiebreakers it works just as well
+    # as the legacy tiebreaker prompt, and stays consistent with the
+    # fallback-as-facts code path.
+    prompt = _build_facts_prompt(text, allowed_field_ids, workpaper_type)
+
+    try:
+        raw_content = _llm_chat_response_json(prompt, num_predict=1024)
+    except Exception as e:
+        logger.warning("llm_extractor.extract_fields_as_facts: %s", e)
+        return {}
+
+    parsed = _parse_fallback_response(raw_content, allowed_field_ids)
+
+    facts: dict[str, ExtractedFact] = {}
+    for fid, field_result in parsed.items():
+        if not field_result.found:
+            continue
+        try:
+            fact = _raw_field_result_to_fact(
+                field_id=fid,
+                raw={
+                    "value": field_result.value,
+                    "source_hint": field_result.source_hint,
+                },
+                workpaper_type=workpaper_type,
+                document_path=document_path,
+                document_type=document_type,
+            )
+        except (KeyError, ValueError) as e:
+            logger.warning(
+                "llm_extractor: skipping tiebreaker field %r — %s", fid, e,
+            )
+            continue
+        if fact is not None:
+            facts[fid] = fact
+
+    return facts
