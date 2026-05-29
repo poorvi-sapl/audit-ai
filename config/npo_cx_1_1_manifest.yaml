@@ -73,7 +73,7 @@ part_i:
         question: "Audit of compliance with the terms of a grant agreement? (Specify.)"
         input_type: dropdown
         source: auditor_selection
-        options: ["2 CFR Part 200 – Uniform Guidance", "Other"]
+        options: ["No", "2 CFR Part 200 – Uniform Guidance", "Other"]
         sop_reference: "SOP Table 2, Q1(b)"
         criticality: must_fill
 
@@ -321,10 +321,8 @@ part_i:
   q12:
     field_id: q12
     question: "Are you aware of any actual instances of fraud or violations of laws or regulations, or any allegations of fraud?"
-    input_type: yes_no
-    source: sop_fixed
-    rule:
-      value: "No"
+    input_type: yes_no_with_remark_on_yes
+    source: auditor_yes_no_with_remark
     sop_reference: "SOP Table 2, Q12"
     criticality: must_fill
 

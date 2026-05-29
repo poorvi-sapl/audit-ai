@@ -1035,9 +1035,16 @@ if True:
             )
             in_q1b = st.selectbox(
                 "Q1(b) Grant compliance",
-                options=["", "2 CFR Part 200 – Uniform Guidance", "Other"],
+                options=["", "No", "2 CFR Part 200 – Uniform Guidance", "Other"],
                 key="wp_q1b",
             )
+            in_q1b_other = ""
+            if in_q1b == "Other":
+                in_q1b_other = st.text_input(
+                    "Q1(b) Other — specify",
+                    key="wp_q1b_other",
+                    help="The specified text will appear in the Comments column of Q1(b).",
+                )
             in_q1f = st.selectbox(
                 "Q1(f) Federal tax / info return",
                 options=["", "No", "Yes — Form 990", "Yes — Form 990-PF", "Yes — Form 199", "Yes — Form RRF-1"],
@@ -1048,6 +1055,19 @@ if True:
                 key="wp_q2j_remark",
                 height=80,
             )
+            in_q12 = st.selectbox(
+                "Q12 Fraud / violations awareness",
+                options=["", "No", "Yes"],
+                key="wp_q12",
+                help="If Yes, provide a remark below — it appears in the Comments column of Q12.",
+            )
+            in_q12_remark = ""
+            if in_q12 == "Yes":
+                in_q12_remark = st.text_area(
+                    "Q12 Remark (required when Yes)",
+                    key="wp_q12_remark",
+                    height=80,
+                )
             in_org_override = st.text_input(
                 "Organization name (override detector hint)",
                 key="wp_org_override",
@@ -1073,9 +1093,17 @@ if True:
         if in_signoff_date: auditor_inputs["sign_off_date"] = in_signoff_date
         if in_concurring: auditor_inputs["concurring_partner"] = in_concurring
         if in_q1a: auditor_inputs["q1_a"] = in_q1a
-        if in_q1b: auditor_inputs["q1_b"] = in_q1b
+        if in_q1b == "Other":
+            if in_q1b_other.strip():
+                auditor_inputs["q1_b"] = in_q1b_other.strip()
+        elif in_q1b:
+            auditor_inputs["q1_b"] = in_q1b
         if in_q1f: auditor_inputs["q1_f"] = in_q1f
         if in_q2j_remark: auditor_inputs["pii_q2_j"] = in_q2j_remark
+        if in_q12 == "Yes" and in_q12_remark.strip():
+            auditor_inputs["q12"] = f"Yes — {in_q12_remark.strip()}"
+        elif in_q12 == "No":
+            auditor_inputs["q12"] = "No"
         if in_org_override: auditor_inputs["organization_name"] = in_org_override
 
         # Register the client (creates folder + seeds PDF).

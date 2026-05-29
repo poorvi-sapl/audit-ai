@@ -176,6 +176,13 @@ def _resolve_field(
             return ResolvedField(fid, str(provided), source, "resolved", citation)
         return ResolvedField(fid, None, source, "needs_input", citation)
 
+    if source == "auditor_yes_no_with_remark":
+        # Auditor selects Yes or No. UI sends "No" or "Yes — <remark>".
+        provided = auditor_inputs.get(fid)
+        if provided in (None, ""):
+            return ResolvedField(fid, None, source, "needs_input", citation)
+        return ResolvedField(fid, str(provided), source, "resolved", citation)
+
     if source == "derived":
         if fid == "acceptance_decision":
             value, applied = _resolve_acceptance_decision(resolved_so_far)

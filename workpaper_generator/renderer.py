@@ -29,6 +29,7 @@ from typing import Optional
 import yaml
 from docx import Document
 from docx.oxml import OxmlElement
+from docx.shared import Pt
 from docx.table import _Cell
 from docx.text.paragraph import Paragraph
 
@@ -177,12 +178,19 @@ def _set_cell_valign(cell: _Cell, val: str) -> None:
     vAlign.set(f"{{{_W}}}val", val)
 
 
-def _set_cell_text(cell: _Cell, text: str) -> None:
-    """Replace cell contents with text, preserving the first paragraph style."""
+def _set_cell_text(cell: _Cell, text: str, space_after_pt: int = 0) -> None:
+    """Replace cell contents with text, preserving the first paragraph style.
+
+    `space_after_pt` adds breathing room below the paragraph so that
+    adjacent short rows (e.g. Q1(a) → Q1(b)) don't visually collapse
+    into each other.
+    """
     # Wipe existing content
     for p in list(cell.paragraphs):
         p._element.getparent().remove(p._element)
-    cell.add_paragraph(text)
+    p = cell.add_paragraph(text)
+    if space_after_pt:
+        p.paragraph_format.space_after = Pt(space_after_pt)
 
 
 def _append_cell_text(cell: _Cell, text: str) -> None:
@@ -315,6 +323,24 @@ def _comment_for_field(rf: ResolvedField) -> Optional[str]:
     if rf.source == "sop_fixed_plus_manual":
         return val.replace("Yes — ", "").strip() or None
 
+    if rf.source == "auditor_selection":
+        # "Yes — Form 990"             → "Form 990" (Q1f spec)
+        # "No"                          → no comment
+        # "Accrual / GAAP"              → "Accrual / GAAP" (Q1a basis)
+        # "2 CFR Part 200 – Uniform..." → "2 CFR Part 200 – Uniform..." (Q1b)
+        if val.startswith("Yes — "):
+            return val[len("Yes — "):].strip() or None
+        if val in ("Yes", "No", ""):
+            return None
+        return val
+
+    if rf.source == "auditor_yes_no_with_remark":
+        # "Yes — <remark>" → comment is the remark (Q12)
+        # "No"             → no comment
+        if val.startswith("Yes — "):
+            return val[len("Yes — "):].strip() or None
+        return None
+
     return None
 
 
@@ -330,6 +356,11 @@ def _value_for_marking(rf: ResolvedField) -> Optional[str]:
         return "No"
     if rf.value == "N/A":
         return "N/A"
+    # An auditor_selection value that doesn't start with Yes/No is a pure
+    # specification (Q1a basis of accounting, Q1b grant framework) — the
+    # question is answered affirmatively with that specification.
+    if rf.source == "auditor_selection":
+        return "Yes"
     return None
 
 
@@ -373,13 +404,13 @@ def _render_part_i(table, resolved: dict[str, ResolvedField], question_index: di
         # start at the same height instead of the question appearing below.
         if fid == "q3":
             if rf.value:
-                _set_cell_text(row_cells[_PART_I_COMMENT_COL], rf.value)
+                _set_cell_text(row_cells[_PART_I_COMMENT_COL], rf.value, space_after_pt=6)
             _set_cell_valign(row_cells[_PART_I_QUESTION_COL], "top")
             _set_cell_valign(row_cells[_PART_I_COMMENT_COL], "top")
             placements[fid] = f"row_{ri}_text"
             continue
         if comment:
-            _set_cell_text(row_cells[_PART_I_COMMENT_COL], comment)
+            _set_cell_text(row_cells[_PART_I_COMMENT_COL], comment, space_after_pt=6)
 
         if mark:
             _mark_part_i_row(table.rows[ri], mark, None)
@@ -419,7 +450,7 @@ def _render_part_ii(table, resolved: dict[str, ResolvedField], question_index: d
         mark = _value_for_marking(rf)
         comment = _comment_for_field(rf)
         if comment:
-            _set_cell_text(row_cells[_PART_II_COMMENT_COL], comment)
+            _set_cell_text(row_cells[_PART_II_COMMENT_COL], comment, space_after_pt=6)
 
         if mark:
             _mark_part_ii_row(table.rows[ri], mark, None)
