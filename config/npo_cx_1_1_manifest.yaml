@@ -1,0 +1,588 @@
+# =============================================================================
+# Field manifest for NPO-CX-1.1 — Engagement Acceptance and Continuance Form
+# =============================================================================
+# Source documents:
+#   - Workpaper template: NPO CX 1.1 Engagement Accept and Cont Form.docx
+#   - SOP:                SOP_NPO_CX_1_1_Final_v10.docx (SOP-QM-001 v1.0)
+#
+# Field source taxonomy:
+#   sop_fixed              — value is hard-coded by SOP, no input needed
+#   sop_fixed_plus_lookup  — value is fixed but a sub-reference depends on PDF lookup
+#   sop_fixed_plus_manual  — value is fixed but a remark/text is manually entered
+#   py_audit_report_lookup — value derived by retrieving a section from prior-year PDF
+#   auditor_selection      — dropdown / checkbox / Yes-No chosen by auditor
+#   manual_entry           — free-text or date entered by auditor
+#   derived                — computed from other field values (e.g., acceptance decision)
+# =============================================================================
+
+workpaper:
+  id: NPO-CX-1.1
+  title: "Engagement Acceptance and Continuance Form"
+  sop_reference: "SOP-QM-001 v1.0"
+  approved_by: "Sanwar Harshwal, Engagement Partner"
+  effective_date: "2025-01-01"
+  standards: ["AU-C 220", "SAS No. 146", "Yellow Book"]
+
+# -----------------------------------------------------------------------------
+# Header fields (top of the workpaper, above Part I)
+# -----------------------------------------------------------------------------
+header_fields:
+  - field_id: organization_name
+    label: "Organization"
+    source: manual_entry
+    pdf_hint: "Cover page / letterhead of client audit report"
+    criticality: must_fill
+
+  - field_id: financial_position_date
+    label: "Statement of Financial Position Date"
+    source: manual_entry
+    input_type: date
+    pdf_hint: "Statement of Financial Position header in client report"
+    criticality: must_fill
+
+  - field_id: completed_by
+    label: "Completed by"
+    source: manual_entry
+    criticality: must_fill
+
+  - field_id: completion_date
+    label: "Date"
+    source: manual_entry
+    input_type: date
+    criticality: must_fill
+
+# -----------------------------------------------------------------------------
+# Part I — General Acceptance / Continuance Considerations (Q1–Q16)
+# -----------------------------------------------------------------------------
+part_i:
+
+  # === Q1 — Services desired ===
+  q1:
+    parent_question: "What services does the nonprofit organization desire from our firm?"
+    sub_fields:
+      - field_id: q1_a
+        question: "Audit of organization's financial statements in accordance with GAAS? (Specify basis of accounting.)"
+        input_type: dropdown
+        source: auditor_selection
+        options: ["Accrual / GAAP", "Cash Basis", "Other"]
+        pdf_hint: "Notes to financial statements may state basis"
+        sop_reference: "SOP Table 2, Q1(a)"
+        criticality: must_fill
+
+      - field_id: q1_b
+        question: "Audit of compliance with the terms of a grant agreement? (Specify.)"
+        input_type: dropdown
+        source: auditor_selection
+        options: ["2 CFR Part 200 – Uniform Guidance", "Other"]
+        sop_reference: "SOP Table 2, Q1(b)"
+        criticality: must_fill
+
+      - field_id: q1_c
+        question: "Single Audit?"
+        input_type: yes_no
+        source: py_audit_report_lookup
+        rule:
+          lookup_target: "Schedule of Expenditures of Federal Awards"
+          search_in: index_or_table_of_contents
+          if_found: "Yes"
+          if_not_found: "No"
+        initial_audit_default: "No"
+        sop_reference: "SOP Table 2, Q1(c)"
+        criticality: must_fill
+
+      - field_id: q1_d
+        question: "Report on supplementary information in relation to the financial statements as a whole? (Specify.)"
+        input_type: yes_no
+        source: py_audit_report_lookup
+        rule:
+          lookup_target: "Supplementary Information"
+          search_in: index_or_table_of_contents
+          if_found: "Yes"
+          if_not_found: "No"
+        initial_audit_default: "No"
+        sop_reference: "SOP Table 2, Q1(d)"
+        criticality: must_fill
+
+      - field_id: q1_e
+        question: "Other attest services? (Specify.)"
+        input_type: yes_no
+        source: sop_fixed
+        rule:
+          value: "No"
+        sop_reference: "SOP Table 2, Q1(e)"
+        criticality: must_fill
+
+      - field_id: q1_f
+        question: "Preparation of federal tax or information returns? (Specify.)"
+        input_type: yes_no_with_specification
+        source: auditor_selection
+        specification_options: ["Form 990", "Form 990-PF", "Form 199", "Form RRF-1"]
+        sop_reference: "SOP Table 2, Q1(f)"
+        criticality: must_fill
+
+      - field_id: q1_g
+        question: "Other non-attest/non-audit services?"
+        input_type: yes_no_with_text
+        source: sop_fixed
+        rule:
+          value: "Yes"
+          prefill_text: "Assist in preparing the financial statements, proposed adjusting journal entries"
+        sop_reference: "SOP Table 2, Q1(g)"
+        criticality: must_fill
+
+  # === Q2 — Non-attest services ===
+  q2:
+    field_id: q2
+    question: "Will our firm provide non-attest/non-audit services to the client?"
+    input_type: yes_no_with_reference
+    source: sop_fixed_plus_lookup
+    rule:
+      value: "Yes"
+      reference_lookup:
+        lookup_target: "Compliance Section"
+        search_in: index_or_table_of_contents
+        if_found_reference: "NPO CX-1.3"
+        if_not_found_reference: "NPO CX-1.2"
+    initial_audit_default_reference: "NPO CX-1.2"
+    sop_reference: "SOP Table 2, Q2"
+    criticality: must_fill
+
+  # === Q3 — Intended use ===
+  q3:
+    field_id: q3
+    question: "Briefly describe the intended use of the financial statements."
+    input_type: text_prefill
+    source: sop_fixed
+    rule:
+      prefill_text: >-
+        They are intended to be used by management, governing bodies, auditors,
+        funding agencies, and other stakeholders to make informed economic decisions,
+        assess accountability, and evaluate compliance with applicable laws,
+        regulations, and funding requirements.
+    sop_reference: "SOP Table 2, Q3"
+    criticality: must_fill
+
+  # === Q4 — Financial reporting framework ===
+  q4:
+    field_id: q4
+    question: "Is the financial reporting framework used by management to prepare the financial statements considered unacceptable?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    decision_impact: "If Yes → DO NOT ACCEPT (unacceptable framework)"
+    sop_reference: "SOP Table 2, Q4"
+    criticality: must_fill
+
+  # === Q5 — Management refusals ===
+  q5:
+    parent_question: "Has management refused, or are there indications that management will refuse or be unable, to do the following:"
+    sub_fields:
+      - field_id: q5_a
+        question: "Accept responsibility for the preparation and fair presentation of the financial statements or for the design, implementation, and maintenance of internal control over the financial statements?"
+        input_type: yes_no_with_text
+        source: sop_fixed
+        rule:
+          value: "No"
+          prefill_text: "The management accepts responsibility for the preparation and fair presentation of the financial statements."
+        decision_impact: "If Yes → DO NOT ACCEPT"
+        sop_reference: "SOP Table 2, Q5(a)"
+        criticality: must_fill
+
+      - field_id: q5_b
+        question: "Provide us with unrestricted access to all information relevant to the preparation and fair presentation of the financial statements, any additional information we may request for the audit, and persons within the entity from whom we determine we need to obtain audit evidence?"
+        input_type: yes_no_with_text
+        source: sop_fixed
+        rule:
+          value: "No"
+          prefill_text: "The management provides unrestricted access to all information relevant to the preparation and fair presentation of the financial statements."
+        decision_impact: "If Yes → DO NOT ACCEPT"
+        sop_reference: "SOP Table 2, Q5(b)"
+        criticality: must_fill
+
+      - field_id: q5_c
+        question: "Provide us with appropriate written representations at the conclusion of the engagement?"
+        input_type: yes_no_with_text
+        source: sop_fixed
+        rule:
+          value: "No"
+          prefill_text: "The management provides appropriate written representations at the conclusion of the engagement."
+        decision_impact: "If Yes → DO NOT ACCEPT"
+        sop_reference: "SOP Table 2, Q5(c)"
+        criticality: must_fill
+
+  # === Q6 — Firm competence ===
+  q6:
+    field_id: q6
+    question: "Do firm personnel lack (or will they be unable to obtain) the necessary competence and capabilities to serve the client, including the ability to comply with any specialized industry, legal, or regulatory requirements?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q6"
+    criticality: must_fill
+    sub_fields:
+      - field_id: q6_a
+        question: "Does the staff assigned to the engagement collectively lack the technical knowledge, skills, and experience to perform the engagement?"
+        input_type: yes_no
+        source: sop_fixed
+        rule:
+          value: "No"
+        sop_reference: "SOP Table 2, Q6(a)"
+        criticality: must_fill
+
+      - field_id: q6_b
+        question: "Does the staff assigned to the engagement fail to meet the CPE requirements of the Yellow Book?"
+        input_type: yes_no
+        source: sop_fixed
+        rule:
+          value: "No"
+        sop_reference: "SOP Table 2, Q6(b)"
+        criticality: must_fill
+
+  # === Q7 — Staffing commitment ===
+  q7:
+    field_id: q7
+    question: "Is the staffing commitment, including the use of specialists, needed for the engagement beyond our capabilities?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q7"
+    criticality: must_fill
+
+  # === Q8 — Quality control system ===
+  q8:
+    field_id: q8
+    question: "Does the audit firm not have an appropriate internal quality control system in place and is an external peer review not completed (that is, report issued) at least once every three years?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q8"
+    criticality: must_fill
+
+  # === Q9 — Independence and ethics ===
+  q9:
+    field_id: q9
+    question: "Is the firm unable to comply with independence, integrity, objectivity matters, conflicts of interest, legal, or other ethical requirements?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    decision_impact: "If Yes → DO NOT ACCEPT (firm lacks independence)"
+    sop_reference: "SOP Table 2, Q9"
+    criticality: must_fill
+    sub_fields:
+      - field_id: q9_a
+        question: "If the engagement is subject to Government Auditing Standards, are there any independence or conflicts of interest problems with the Government Auditing Standards independence requirements?"
+        input_type: yes_no
+        source: sop_fixed
+        rule:
+          value: "No"
+        decision_impact: "If Yes → DO NOT ACCEPT (Yellow Book independence impaired)"
+        sop_reference: "SOP Table 2, Q9(a)"
+        criticality: must_fill
+
+      - field_id: q9_b
+        question: "If this is a Single Audit, do we prepare indirect cost allocation plans for the client?"
+        input_type: yes_no
+        source: sop_fixed
+        rule:
+          value: "No"
+        decision_impact: "If Yes (and recoveries >$1M) → DO NOT ACCEPT"
+        sop_reference: "SOP Table 2, Q9(b)"
+        criticality: must_fill
+
+  # === Q10 — Sufficient audit evidence ===
+  q10:
+    field_id: q10
+    question: "Does it appear that sufficient appropriate audit evidence on which to base the audit opinion cannot be obtained?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q10"
+    criticality: must_fill
+
+  # === Q11 — Management integrity ===
+  q11:
+    field_id: q11
+    question: "Are there any concerns about management's integrity, including the identity and business reputation of the client's key management, related parties, and those charged with its governance, or the risks associated with providing professional services?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    decision_impact: "If Yes → DO NOT ACCEPT (management integrity in doubt)"
+    sop_reference: "SOP Table 2, Q11"
+    criticality: must_fill
+
+  # === Q12 — Fraud awareness ===
+  q12:
+    field_id: q12
+    question: "Are you aware of any actual instances of fraud or violations of laws or regulations, or any allegations of fraud?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q12"
+    criticality: must_fill
+
+  # === Q13 — Unmodified opinion possible ===
+  q13:
+    field_id: q13
+    question: "Are there circumstances that might not permit an adequate audit and the expression of an unmodified opinion?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q13"
+    criticality: must_fill
+
+  # === Q14 — Special attention indicators ===
+  q14:
+    field_id: q14
+    question: "Has our review of information such as the amounts or disclosures in the latest annual and interim financial statements, income tax or information returns, auditor's reports, reports to regulatory agencies, other information filed with regulatory agencies, other auditor communications, or our previous experience with the client, including other engagements performed for the entity, provided information that would cause us to regard the engagement as requiring special attention, presenting unusual risks or causing us not to want to be associated with the client?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q14"
+    criticality: must_fill
+
+  # === Q15 — Economic standards ===
+  q15:
+    field_id: q15
+    question: "Does the engagement fail to meet the firm's standards from an economic standpoint?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q15"
+    criticality: must_fill
+
+  # === Q16 — Catch-all discomfort ===
+  q16:
+    field_id: q16
+    question: "Is there anything else about the client or the engagement that causes us to be uncomfortable about being associated with this client or the related engagement?"
+    input_type: yes_no
+    source: sop_fixed
+    rule:
+      value: "No"
+    sop_reference: "SOP Table 2, Q16"
+    criticality: must_fill
+
+# -----------------------------------------------------------------------------
+# Acceptance / Continuance Decision (derived from Q4, Q5, Q9, Q11 per SOP Table 3)
+# -----------------------------------------------------------------------------
+acceptance_decision:
+  field_id: acceptance_decision
+  input_type: derived
+  source: derived
+  options: ["ACCEPT / CONTINUE", "DO NOT ACCEPT / CONTINUE"]
+  rule:
+    reject_if_any_true:
+      - "q4 == Yes"        # Unacceptable financial reporting framework
+      - "q5_a == Yes"      # Management refuses responsibility
+      - "q5_b == Yes"      # Management refuses access
+      - "q5_c == Yes"      # Management refuses representations
+      - "q9 == Yes"        # Firm lacks independence (GAAS)
+      - "q9_a == Yes"      # Yellow Book independence impaired
+      - "q9_b == Yes"      # Indirect cost plan + recoveries >$1M unresolved
+      - "q11 == Yes"       # Management integrity in serious doubt
+    otherwise: "ACCEPT / CONTINUE"
+  sop_reference: "SOP Table 3"
+
+# -----------------------------------------------------------------------------
+# Engagement Partner Sign-off (Part I closing)
+# -----------------------------------------------------------------------------
+sign_off:
+  - field_id: engagement_partner
+    label: "Engagement Partner"
+    source: sop_fixed
+    rule:
+      value: "Sanwar Harshwal"
+    locked: true
+    sop_reference: "SOP Table 4"
+    criticality: must_fill
+
+  - field_id: concurring_partner
+    label: "Concurring Partner (if required)"
+    source: manual_entry
+    optional: true
+
+  - field_id: sign_off_date
+    label: "Sign-off Date"
+    source: manual_entry
+    input_type: date
+    constraint: "Must be on or before engagement start date"
+    criticality: must_fill
+
+# -----------------------------------------------------------------------------
+# Engagement Type Branching (controls Part II)
+# -----------------------------------------------------------------------------
+engagement_type:
+  field_id: engagement_type
+  source: auditor_selection
+  options:
+    - value: "Initial / 1st Year"
+      part_ii_behavior: complete_all_questions
+    - value: "Recurring / 2nd Year or Subsequent"
+      part_ii_behavior: skip_all_questions
+      auto_comment: "The engagement is of a continuance hence Part II is not applicable."
+  sop_reference: "SOP Table 5"
+  criticality: must_fill
+
+# -----------------------------------------------------------------------------
+# Part II — Additional Acceptance Considerations for Initial Audit Engagements
+# (All fields are N/A when engagement_type == Recurring)
+# -----------------------------------------------------------------------------
+part_ii:
+
+  - field_id: pii_q1
+    question: "Did management refuse to authorize the predecessor auditor to respond fully to inquiries about matters that would assist in determining whether to accept the engagement?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Part II Q1"
+    criticality: must_fill
+
+  - field_id: pii_q2_a
+    question: "Did the predecessor fail to respond or provide only a limited response to inquiries about matters that would assist in determining whether to accept the engagement?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(a)"
+    criticality: must_fill
+
+  - field_id: pii_q2_b
+    question: "Has the predecessor had disputes with the client about accounting principles, proposed adjustments, auditing procedures, or other significant matters?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(b)"
+    criticality: must_fill
+
+  - field_id: pii_q2_c
+    question: "Has the predecessor been prevented from applying necessary procedures?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(c)"
+    criticality: must_fill
+
+  - field_id: pii_q2_d
+    question: "Does the predecessor auditor have reason to doubt management's integrity?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(d)"
+    criticality: must_fill
+
+  - field_id: pii_q2_e
+    question: "Have other auditors refused to serve this client?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(e)"
+    criticality: must_fill
+
+  - field_id: pii_q2_f
+    question: "Are there unpaid fees or fee disputes with the predecessor for services rendered?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(f)"
+    criticality: must_fill
+
+  - field_id: pii_q2_g
+    question: "Has management or those charged with governance been domineering in dealing with the predecessor auditor?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(g)"
+    criticality: must_fill
+
+  - field_id: pii_q2_h
+    question: "Has management or those charged with governance placed unreasonable demands on the predecessor auditor?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(h)"
+    criticality: must_fill
+
+  - field_id: pii_q2_i
+    question: "Has the predecessor had any communications with the client regarding known or suspected fraud, violations of laws or regulations, noncompliance, waste or abuse, or internal control deficiencies?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Q2(i)"
+    criticality: must_fill
+
+  - field_id: pii_q2_j
+    question: "Document (or cross-reference to documentation of) the predecessor's understanding as to the reasons for a change in auditors and any additional comments from the results of the inquiries of the predecessor auditor."
+    input_type: yes_no_with_mandatory_remark
+    source: sop_fixed_plus_manual
+    rule:
+      recurring: "N/A"
+      initial:
+        value: "Yes"
+        remark: mandatory_manual_entry
+    sop_reference: "SOP Table 6, Q2(j)"
+    criticality: must_fill_with_remark
+
+  - field_id: pii_q3
+    question: "Have contacts with bankers, attorneys, board members, funding sources, state attorney generals, credit services, or others having business relationships with the client raised any concerns about management's integrity or other concerns about the client?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Part II Q3"
+    criticality: must_fill
+
+  - field_id: pii_q4
+    question: "If the firm's policy is to obtain a background investigation on potential clients, have the results of the investigation raised any concerns about management's integrity?"
+    input_type: yes_no_na
+    source: sop_fixed
+    rule:
+      recurring: "N/A"
+      initial: "No"
+    sop_reference: "SOP Table 6, Part II Q4"
+    criticality: must_fill
+
+# -----------------------------------------------------------------------------
+# Summary statistics (for planning)
+# -----------------------------------------------------------------------------
+manifest_stats:
+  total_fields: 51
+  by_source:
+    sop_fixed: 36              # Deterministic — no input, no extraction
+    py_audit_report_lookup: 3  # Q1(c), Q1(d), Q2 reference — needs PDF retrieval
+    sop_fixed_plus_lookup: 1   # Q2 (value fixed, reference depends on lookup)
+    sop_fixed_plus_manual: 1   # Q2(j) value fixed, remark manual
+    auditor_selection: 3       # Q1(a), Q1(b), Q1(f) — dropdown / Yes-No
+    manual_entry: 6            # Header(4) + concurring_partner + sign_off_date
+    derived: 1                 # acceptance_decision
+  extraction_dependent_fields: 4   # Q1(c), Q1(d), Q2 lookup
+  rag_complexity: low              # Only 3 named-section lookups in PY report index

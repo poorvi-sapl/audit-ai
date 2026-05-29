@@ -42,6 +42,16 @@ from auditai_data_normalization.alias_suggester import (
     _load_canonical_fields,
 )
 from auditai_data_normalization.normalize import reset_alias_cache
+from workpaper_generator.orchestrator import (
+    run_engagement,
+    register_new_client,
+    ENGAGEMENT_INITIAL,
+    ENGAGEMENT_RECURRING,
+    CANONICAL_BLANK_TEMPLATE,
+)
+from workpaper_generator.renderer import render as render_workpaper
+from workpaper_generator.pdf_section_detector import detect as detect_sections
+from workpaper_generator.rule_engine import resolve_workpaper
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -51,6 +61,8 @@ _QUEUE_PATH = Path("data/review_queue.jsonl")
 _DATA_DIR   = Path("data")
 _CLIENT_TYPES = ["NPO", "Government", "For-Profit", "Tribal"]
 _SOP_EXTENSIONS = ["pdf", "txt", "md", "docx"]
+_ENGAGEMENTS_DIR = Path("Engagement Accept and Cont Form")
+_WORKPAPER_RUNS_DIR = Path("data/workpaper_runs")
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -72,6 +84,11 @@ defaults = {
     "last_export": None,
     "queue_refresh": 0,
     "sop_embed_result": None,
+    "workpaper_result": None,
+    "workpaper_output_path": None,
+    "playground_detection": None,
+    "playground_resolved": None,
+    "playground_pdf_label": None,
 }
 for key, val in defaults.items():
     if key not in st.session_state:
@@ -793,7 +810,7 @@ else:
                 edited_completion = st.text_area(
                     "Assistant completion (editable — changes apply on approve)",
                     value=st.session_state[edited_key],
-                    height=250,
+                    height=500,
                     key=edited_key,
                 )
                 if edited_completion != asst_content:
@@ -943,3 +960,481 @@ for stage, label in [("stage2", "Stage 2 — Domain"), ("stage3", "Stage 3 — F
             dcol2.caption("No data yet")
     except Exception:
         pass
+
+# ===========================================================================
+# SECTION 4 — NPO-CX-1.1 Engagement Workpaper Generator
+# ===========================================================================
+
+st.header("4 · Engagement Workpaper Generator (NPO-CX-1.1)")
+
+st.caption(
+    "Generate a filled NPO-CX-1.1 Engagement Acceptance & Continuance form "
+    "from a client's prior-year audit report PDF using the SOP-driven rule "
+    "engine and PDF section detector."
+)
+
+# --- Source mode (existing engagement vs. new client upload) ---
+wp_mode = st.radio(
+    "Source",
+    options=["Existing engagement", "New client (upload PDF)"],
+    horizontal=True,
+    key="wp_mode",
+)
+
+engagement_options: list[str] = []
+if _ENGAGEMENTS_DIR.is_dir():
+    # Only require a PDF — the renderer always uses the canonical blank,
+    # so any .docx in the folder (historical workpaper, partially filled form, etc.)
+    # is intentionally ignored.
+    engagement_options = sorted(
+        p.name for p in _ENGAGEMENTS_DIR.iterdir()
+        if p.is_dir() and list(p.glob("*.pdf"))
+    )
+
+engagement_dir: Path | None = None
+new_client_name: str = ""
+new_client_pdf_bytes: bytes | None = None
+new_client_pdf_filename: str | None = None
+
+col_sel1, col_sel2 = st.columns([2, 2])
+
+with col_sel1:
+    if wp_mode == "Existing engagement":
+        if engagement_options:
+            selected_engagement = st.selectbox(
+                "Engagement",
+                options=engagement_options,
+                help="Subfolder under 'Engagement Accept and Cont Form/' containing the client PDF + workpaper template.",
+                key="wp_engagement",
+            )
+            engagement_dir = _ENGAGEMENTS_DIR / selected_engagement
+        else:
+            st.info(
+                "No existing engagements found. Switch to 'New client' to upload a PDF."
+            )
+    else:
+        new_client_name = st.text_input(
+            "Client name",
+            help="A folder will be created under 'Engagement Accept and Cont Form/<ClientName>/'.",
+            key="wp_new_client_name",
+        )
+        uploaded_pdf = st.file_uploader(
+            "Upload PY audit report PDF",
+            type=["pdf"],
+            key="wp_new_pdf",
+        )
+        if uploaded_pdf is not None:
+            new_client_pdf_bytes = uploaded_pdf.getvalue()
+            new_client_pdf_filename = uploaded_pdf.name
+
+with col_sel2:
+    engagement_type_label = st.radio(
+        "Engagement type",
+        options=["Recurring", "Initial / 1st year"],
+        horizontal=True,
+        key="wp_engagement_type",
+        help="Recurring engagements skip Part II (auto-N/A). Initial fills Part II with SOP defaults.",
+    )
+
+engagement_type = (
+    ENGAGEMENT_RECURRING if engagement_type_label == "Recurring" else ENGAGEMENT_INITIAL
+)
+
+if engagement_dir is not None:
+    pdfs = list(engagement_dir.glob("*.pdf"))
+    if pdfs:
+        st.caption(
+            f"PDF: `{pdfs[0].name}` · "
+            f"Template: canonical blank ({CANONICAL_BLANK_TEMPLATE.name})"
+        )
+elif wp_mode == "New client (upload PDF)" and new_client_pdf_filename:
+    st.caption(
+        f"PDF: `{new_client_pdf_filename}` · "
+        f"Template: canonical blank ({CANONICAL_BLANK_TEMPLATE.name})"
+    )
+
+# --- Auditor inputs (optional overrides for needs_input fields) ---
+if True:
+    with st.expander("Auditor inputs (optional — leave blank to keep as needs_input)"):
+        wp_col1, wp_col2 = st.columns(2)
+        with wp_col1:
+            in_completed_by = st.text_input("Completed by", key="wp_completed_by")
+            in_completion_date = st.text_input("Completion date (e.g., 03/09/2026)", key="wp_completion_date")
+            in_fye_date = st.text_input(
+                "Statement of Financial Position Date (current engagement, e.g., 06/30/2025)",
+                key="wp_fye_date",
+            )
+            in_signoff_date = st.text_input("Engagement partner sign-off date", key="wp_signoff_date")
+            in_concurring = st.text_input("Concurring partner (optional)", key="wp_concurring")
+        with wp_col2:
+            in_q1a = st.selectbox(
+                "Q1(a) Basis of accounting",
+                options=["", "Accrual / GAAP", "Cash Basis", "Other"],
+                key="wp_q1a",
+            )
+            in_q1b = st.selectbox(
+                "Q1(b) Grant compliance",
+                options=["", "2 CFR Part 200 – Uniform Guidance", "Other"],
+                key="wp_q1b",
+            )
+            in_q1f = st.selectbox(
+                "Q1(f) Federal tax / info return",
+                options=["", "No", "Yes — Form 990", "Yes — Form 990-PF", "Yes — Form 199", "Yes — Form RRF-1"],
+                key="wp_q1f",
+            )
+            in_q2j_remark = st.text_area(
+                "Q2(j) Predecessor auditor remark (Initial engagements only)",
+                key="wp_q2j_remark",
+                height=80,
+            )
+            in_org_override = st.text_input(
+                "Organization name (override detector hint)",
+                key="wp_org_override",
+            )
+
+    # Decide whether the user has provided enough input to generate.
+    is_existing_ready = (wp_mode == "Existing engagement" and engagement_dir is not None)
+    is_new_ready = (
+        wp_mode == "New client (upload PDF)"
+        and bool(new_client_name.strip())
+        and new_client_pdf_bytes is not None
+    )
+    generate_enabled = is_existing_ready or is_new_ready
+
+    if st.button(
+        "🧾 Generate workpaper",
+        type="primary",
+        key="wp_generate",
+        disabled=not generate_enabled,
+        help=(
+            None if generate_enabled
+            else "Provide client name + PDF (new client) or pick an existing engagement."
+        ),
+    ):
+        auditor_inputs: dict = {}
+        if in_completed_by: auditor_inputs["completed_by"] = in_completed_by
+        if in_completion_date: auditor_inputs["completion_date"] = in_completion_date
+        if in_fye_date: auditor_inputs["financial_position_date"] = in_fye_date
+        if in_signoff_date: auditor_inputs["sign_off_date"] = in_signoff_date
+        if in_concurring: auditor_inputs["concurring_partner"] = in_concurring
+        if in_q1a: auditor_inputs["q1_a"] = in_q1a
+        if in_q1b: auditor_inputs["q1_b"] = in_q1b
+        if in_q1f: auditor_inputs["q1_f"] = in_q1f
+        if in_q2j_remark: auditor_inputs["pii_q2_j"] = in_q2j_remark
+        if in_org_override: auditor_inputs["organization_name"] = in_org_override
+
+        # If new client, register first (creates folder + seeds PDF + blank template)
+        if wp_mode == "New client (upload PDF)":
+            try:
+                engagement_dir = register_new_client(
+                    client_name=new_client_name.strip(),
+                    pdf_bytes=new_client_pdf_bytes,
+                    pdf_filename=new_client_pdf_filename,
+                )
+                st.info(f"Registered new engagement folder: `{engagement_dir}`")
+            except (FileNotFoundError, ValueError) as e:
+                st.error(f"Could not register client: {e}")
+                st.stop()
+
+        with st.spinner("Running detector + rule engine + renderer..."):
+            result = run_engagement(
+                engagement_dir=engagement_dir,
+                engagement_type=engagement_type,
+                auditor_inputs=auditor_inputs,
+            )
+            output_path = render_workpaper(result)
+
+        st.session_state.workpaper_result = result
+        st.session_state.workpaper_output_path = str(output_path)
+
+    # --- Results display ---
+    if st.session_state.workpaper_result is not None:
+        result = st.session_state.workpaper_result
+        output_path = Path(st.session_state.workpaper_output_path)
+
+        st.success(f"Workpaper generated: `{output_path.name}`")
+
+        # Summary metrics
+        summary = result.summary
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Resolved", summary.get("resolved", 0))
+        m2.metric("Needs input", summary.get("needs_input", 0))
+        m3.metric("N/A (Part II)", summary.get("na", 0))
+        m4.metric("Total fields", sum(summary.values()))
+
+        # Section detection
+        st.subheader("PDF section detection")
+        det_cols = st.columns(3)
+        for col, key, label in [
+            (det_cols[0], "sefa", "SEFA (Q1c)"),
+            (det_cols[1], "supplementary", "Supplementary Info (Q1d)"),
+            (det_cols[2], "compliance", "Compliance Section (Q2)"),
+        ]:
+            sec = result.detection.sections.get(key)
+            if sec and sec.found:
+                col.success(f"✓ {label} — found in {sec.location}")
+            else:
+                col.info(f"✗ {label} — not present (rule fallback applies)")
+
+        # Key resolved values
+        st.subheader("Key resolved fields")
+        q_rows = []
+        for fid in ["q1_c", "q1_d", "q2", "acceptance_decision"]:
+            rf = result.resolved.get(fid)
+            if rf:
+                q_rows.append({
+                    "Field": fid,
+                    "Value": rf.value,
+                    "Source": rf.source,
+                    "SOP citation": rf.citation.get("sop") or "",
+                    "PDF citation": rf.citation.get("pdf") or "",
+                })
+        st.dataframe(q_rows, use_container_width=True, hide_index=True)
+
+        # Download buttons
+        st.subheader("Downloads")
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
+            with open(output_path, "rb") as f:
+                dl_col1.download_button(
+                    label="⬇️ Filled workpaper (.docx)",
+                    data=f.read(),
+                    file_name=output_path.name,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key="wp_dl_docx",
+                )
+        trace_path = Path(result.output_dir) / "trace.json"
+        if trace_path.exists():
+            with open(trace_path, "rb") as f:
+                dl_col2.download_button(
+                    label="⬇️ Trace JSON (audit trail)",
+                    data=f.read(),
+                    file_name=f"{result.engagement_name}_trace.json",
+                    mime="application/json",
+                    key="wp_dl_trace",
+                )
+
+        # Full field breakdown
+        with st.expander("Full field-by-field breakdown"):
+            from dataclasses import asdict
+            rows = []
+            for fid, rf in result.resolved.items():
+                rows.append({
+                    "Field": fid,
+                    "Status": rf.status,
+                    "Value": (rf.value or "")[:80],
+                    "Source": rf.source,
+                    "SOP": rf.citation.get("sop") or "",
+                    "PDF": (rf.citation.get("pdf") or "")[:60],
+                })
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+
+# ===========================================================================
+# SECTION 5 — RAG + Rule Engine Playground (inspect / validate the approach)
+# ===========================================================================
+
+st.header("5 · RAG + Rule Engine Playground")
+
+st.caption(
+    "Inspect how the PDF section detector and rule engine behave for any "
+    "client PDF. Use the what-if toggles to test SOP Table 3 acceptance "
+    "logic. This panel does not produce a .docx — use Section 4 for that."
+)
+
+_BLOCKER_LABELS = {
+    "q4": "Q4 — Unacceptable financial reporting framework",
+    "q5_a": "Q5(a) — Management refuses responsibility",
+    "q5_b": "Q5(b) — Management refuses access",
+    "q5_c": "Q5(c) — Management refuses representations",
+    "q9": "Q9 — Firm lacks independence (GAAS)",
+    "q9_a": "Q9(a) — Yellow Book independence impaired",
+    "q9_b": "Q9(b) — Indirect cost plan + recoveries >$1M",
+    "q11": "Q11 — Management integrity in doubt",
+}
+
+# --- Inputs ---
+pg_col1, pg_col2 = st.columns([1, 1])
+
+with pg_col1:
+    pg_source = st.radio(
+        "PDF source",
+        options=["Existing engagement", "Upload PDF"],
+        horizontal=True,
+        key="pg_source",
+    )
+
+    pdf_for_test: Path | None = None
+    pdf_label: str | None = None
+
+    if pg_source == "Existing engagement":
+        engagement_dirs = (
+            sorted(p.name for p in _ENGAGEMENTS_DIR.iterdir() if p.is_dir() and list(p.glob("*.pdf")))
+            if _ENGAGEMENTS_DIR.is_dir() else []
+        )
+        if engagement_dirs:
+            pg_eng = st.selectbox("Engagement", engagement_dirs, key="pg_engagement")
+            pdfs = list((_ENGAGEMENTS_DIR / pg_eng).glob("*.pdf"))
+            pdf_for_test = pdfs[0] if pdfs else None
+            pdf_label = f"{pg_eng}/{pdfs[0].name}" if pdfs else None
+        else:
+            st.info("No engagement subfolders with PDFs found.")
+    else:
+        uploaded = st.file_uploader("Upload PY audit report PDF", type=["pdf"], key="pg_upload")
+        if uploaded is not None:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+            tmp.write(uploaded.read())
+            tmp.close()
+            pdf_for_test = Path(tmp.name)
+            pdf_label = uploaded.name
+
+with pg_col2:
+    pg_engagement_type_label = st.radio(
+        "Engagement type",
+        options=["Recurring", "Initial / 1st year"],
+        horizontal=True,
+        key="pg_engagement_type",
+    )
+    pg_engagement_type = (
+        ENGAGEMENT_RECURRING if pg_engagement_type_label == "Recurring" else ENGAGEMENT_INITIAL
+    )
+
+st.markdown("**What-if blocker toggles** — flip any to Yes to see acceptance flip to DO NOT ACCEPT")
+toggle_cols = st.columns(4)
+blocker_overrides: dict[str, str] = {}
+for i, (fid, label) in enumerate(_BLOCKER_LABELS.items()):
+    col = toggle_cols[i % 4]
+    if col.checkbox(label, key=f"pg_blocker_{fid}"):
+        blocker_overrides[fid] = "Yes"
+
+if st.button("🔍 Run detector + rule engine", type="primary", key="pg_run", disabled=pdf_for_test is None):
+    with st.spinner("Running..."):
+        detection = detect_sections(pdf_for_test)
+        # The rule engine needs an org name hint to mirror Section 4 behavior
+        auditor_inputs = {}
+        if detection.header_hints.get("organization_name"):
+            auditor_inputs["organization_name"] = detection.header_hints["organization_name"]
+
+        resolved = resolve_workpaper(
+            pdf_path=pdf_for_test,
+            engagement_type=pg_engagement_type,
+            auditor_inputs=auditor_inputs,
+        )
+
+        # Apply what-if overrides AFTER baseline resolution
+        for fid, override_value in blocker_overrides.items():
+            if fid in resolved:
+                resolved[fid].value = override_value
+                resolved[fid].rule_applied = (resolved[fid].rule_applied or "") + " [overridden via playground]"
+
+        # Re-compute acceptance_decision with the overrides applied
+        _BLOCKER_FIDS = list(_BLOCKER_LABELS.keys())
+        tripped = next((fid for fid in _BLOCKER_FIDS if resolved.get(fid) and resolved[fid].value == "Yes"), None)
+        if "acceptance_decision" in resolved:
+            if tripped:
+                resolved["acceptance_decision"].value = "DO NOT ACCEPT / CONTINUE"
+                resolved["acceptance_decision"].rule_applied = f"Blocked: {tripped} == Yes"
+            else:
+                resolved["acceptance_decision"].value = "ACCEPT / CONTINUE"
+                resolved["acceptance_decision"].rule_applied = "All blocker fields evaluate to No"
+
+    st.session_state.playground_detection = detection
+    st.session_state.playground_resolved = resolved
+    st.session_state.playground_pdf_label = pdf_label
+
+# --- Outputs ---
+if st.session_state.playground_resolved is not None:
+    detection = st.session_state.playground_detection
+    resolved = st.session_state.playground_resolved
+    pdf_label = st.session_state.playground_pdf_label
+
+    st.caption(f"Last run against: `{pdf_label}` ({pg_engagement_type_label})")
+
+    # A. Detector panel
+    st.subheader("A · PDF Section Detector")
+
+    det_cols = st.columns(3)
+    for col, key, label in [
+        (det_cols[0], "sefa", "SEFA → Q1(c)"),
+        (det_cols[1], "supplementary", "Supplementary Info → Q1(d)"),
+        (det_cols[2], "compliance", "Compliance Section → Q2 ref"),
+    ]:
+        sec = detection.sections.get(key)
+        if sec and sec.found:
+            col.success(f"✓ {label}")
+            col.caption(f"matched: `{sec.match_text}` ({sec.location})")
+        else:
+            col.error(f"✗ {label}")
+            col.caption("section not present — rule fallback applies")
+
+    hint_cols = st.columns(3)
+    hint_cols[0].metric("Pages", detection.page_count)
+    hint_cols[1].metric("Extraction quality", detection.extraction_quality)
+    hint_cols[2].metric("Chars extracted", f"{detection.total_chars_extracted:,}")
+
+    h_col1, h_col2 = st.columns(2)
+    h_col1.text(f"Org name hint: {detection.header_hints.get('organization_name') or '(none)'}")
+    h_col2.text(f"PY FYE hint: {detection.header_hints.get('prior_year_fye_date') or '(none)'}")
+
+    # B. Rule engine panel
+    st.subheader("B · Rule Engine Output")
+
+    from workpaper_generator.rule_engine import summarize as _summarize
+    s = _summarize(resolved)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total", sum(s.values()))
+    m2.metric("Resolved", s.get("resolved", 0))
+    m3.metric("Needs input", s.get("needs_input", 0))
+    m4.metric("N/A", s.get("na", 0))
+
+    decision_rf = resolved.get("acceptance_decision")
+    if decision_rf:
+        if decision_rf.value == "ACCEPT / CONTINUE":
+            st.success(f"✅  **{decision_rf.value}** — {decision_rf.rule_applied}")
+        else:
+            st.error(f"⛔  **{decision_rf.value}** — {decision_rf.rule_applied}")
+
+    pin_cols = st.columns(3)
+    for col, fid, label in [
+        (pin_cols[0], "q1_c", "Q1(c) Single Audit"),
+        (pin_cols[1], "q1_d", "Q1(d) Supplementary Info"),
+        (pin_cols[2], "q2", "Q2 Non-attest services"),
+    ]:
+        rf = resolved.get(fid)
+        if rf:
+            col.metric(label, rf.value or "—")
+            col.caption(rf.citation.get("pdf") or rf.citation.get("sop") or "")
+
+    # C. Full field table (filterable)
+    st.subheader("C · All Resolved Fields")
+
+    f_col1, f_col2 = st.columns([1, 1])
+    source_filter = f_col1.multiselect(
+        "Filter by source",
+        options=sorted({rf.source for rf in resolved.values()}),
+        default=[],
+        key="pg_source_filter",
+    )
+    status_filter = f_col2.multiselect(
+        "Filter by status",
+        options=sorted({rf.status for rf in resolved.values()}),
+        default=[],
+        key="pg_status_filter",
+    )
+
+    table_rows = []
+    for fid, rf in resolved.items():
+        if source_filter and rf.source not in source_filter:
+            continue
+        if status_filter and rf.status not in status_filter:
+            continue
+        table_rows.append({
+            "Field": fid,
+            "Status": rf.status,
+            "Value": (rf.value or "")[:80],
+            "Source": rf.source,
+            "Rule applied": (rf.rule_applied or "")[:60],
+            "SOP citation": rf.citation.get("sop") or "",
+            "PDF citation": (rf.citation.get("pdf") or "")[:60],
+        })
+    st.dataframe(table_rows, use_container_width=True, hide_index=True)
+    st.caption(f"Showing {len(table_rows)} of {len(resolved)} fields")
