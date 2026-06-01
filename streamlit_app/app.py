@@ -89,6 +89,7 @@ defaults = {
     "playground_detection": None,
     "playground_resolved": None,
     "playground_pdf_label": None,
+    "batch_result": None,        # batch_orchestrator result for the generation flow
 }
 for key, val in defaults.items():
     if key not in st.session_state:
@@ -553,110 +554,293 @@ st.divider()
 # SECTION 1 — Upload & Process
 # ===========================================================================
 
-st.header("1 · Upload & Process")
-
-col_upload, col_options = st.columns([2, 1])
-
-with col_upload:
-    uploaded_file = st.file_uploader(
-        "Upload a workpaper",
-        type=["docx", "xlsx", "xls", "pdf", "csv", "json"],
-        help="Supported: .docx, .xlsx, .xls, .pdf, .csv, .json",
-    )
-
-with col_options:
-    st.markdown("**Client types to generate**")
-    selected_client_types = []
-    for ct in _CLIENT_TYPES:
-        if st.checkbox(ct, value=(ct == "NPO"), key=f"ct_{ct}"):
-            selected_client_types.append(ct)
-
-    if not selected_client_types:
-        st.warning("Select at least one client type")
-
-process_btn = st.button(
-    "⚡ Process workpaper",
-    disabled=(uploaded_file is None or not selected_client_types),
-    type="primary",
+st.header("1 · Process Engagement")
+st.caption(
+    "Default flow produces **generation training pairs** "
+    "(workpaper-creation task). Provide an engagement folder containing "
+    "source documents + a filled gold workpaper. The legacy single-file "
+    "flow that produces review pairs is available in the expander below."
 )
 
-if process_btn and uploaded_file and selected_client_types:
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = _DATA_DIR / uploaded_file.name
+# ────────────────────────────────────────────────────────────────────────
+# PRIMARY FLOW — Generation pairs (Phase 2.1/2.2/2.3 pipeline)
+# ────────────────────────────────────────────────────────────────────────
 
-    with open(tmp_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+st.subheader("🎯 Generate workpaper pairs (default)")
 
-    with st.spinner(f"Processing {uploaded_file.name}..."):
-        result = process_workpaper(
-            file_path=str(tmp_path),
-            queue_path=_QUEUE_PATH,
-            data_dir=_DATA_DIR,
-            run_parallel=False,
-            client_types=selected_client_types,
-            use_mock=use_mock,
-        )
+eng_col1, eng_col2 = st.columns([2, 1])
 
-    st.session_state.process_result = result
-    st.session_state.queue_refresh += 1
+with eng_col1:
+    engagement_path = st.text_input(
+        "Path to engagement folder OR parent-of-engagements folder",
+        placeholder="Engagement Accept and Cont Form  OR  /audit_data/engagements_2024",
+        help=(
+            "Two layouts supported:\n"
+            "  • A single engagement subfolder (run as one)\n"
+            "  • A parent folder containing multiple engagement subfolders "
+            "(batch run, one pair per subfolder)\n\n"
+            "Each engagement folder must contain a gold workpaper .docx "
+            "matching the pattern at right."
+        ),
+        key="batch_engagement_path",
+    )
 
-# Show results
-if st.session_state.process_result is not None:
-    result = st.session_state.process_result
+with eng_col2:
+    gen_workpaper_type = st.selectbox(
+        "Workpaper type",
+        options=["NPO-CX-1.1"],
+        help="Only NPO-CX-1.1 is supported in Phase 2.2.",
+        key="batch_workpaper_type",
+    )
+    gold_pattern = st.text_input(
+        "Gold filename pattern",
+        value="*.docx",
+        help="Glob pattern identifying the gold .docx in each engagement folder.",
+        key="batch_gold_pattern",
+    )
 
-    if result.skipped:
-        st.error(f"⚠️ Skipped: {result.skip_reason}")
+gen_opt_col1, gen_opt_col2, gen_opt_col3 = st.columns(3)
+with gen_opt_col1:
+    pii_strict_ui = st.checkbox(
+        "PII strict",
+        value=False,
+        help=(
+            "True = refuse any pair where PII is detected. Recommended for "
+            "production / training-data flow. False = warn but allow (dev mode)."
+        ),
+        key="batch_pii_strict",
+    )
+with gen_opt_col2:
+    with_sop_ui = st.checkbox(
+        "SOP retrieval (Qdrant)",
+        value=False,
+        help="Retrieve relevant SOP chunks from Qdrant. Requires the SOP collection to be indexed first.",
+        key="batch_with_sop",
+    )
+with gen_opt_col3:
+    block_hard_ui = st.checkbox(
+        "Block on hard schema issues",
+        value=False,
+        help="True = refuse pairs failing hard validation (missing fields, type mismatches). Soft issues (free-text in dropdowns) never block.",
+        key="batch_block_hard",
+    )
+
+# Show whether the path is a single engagement or a batch parent
+_path_status = ""
+if engagement_path:
+    _p = Path(engagement_path)
+    if not _p.exists():
+        _path_status = "❌ Path does not exist"
+    elif not _p.is_dir():
+        _path_status = "❌ Path is not a directory"
     else:
-        st.success(
-            f"✅ Processed **{result.file_name}** — "
-            f"{result.pairs_queued} pairs queued, "
-            f"{result.pairs_failed} failed"
-        )
+        _subfolders = [c for c in _p.iterdir() if c.is_dir() and not c.name.startswith((".", "_"))]
+        _has_docx_here = any(_p.glob("*.docx"))
+        if _has_docx_here and not _subfolders:
+            _path_status = "✓ Looks like a single engagement folder"
+        elif _subfolders:
+            _path_status = f"✓ Looks like a parent folder with {len(_subfolders)} engagement subfolder(s)"
+        else:
+            _path_status = "⚠️ Folder exists but no engagement structure detected"
+if _path_status:
+    st.caption(_path_status)
 
-        st.subheader("Extraction summary")
-        record = result.record
+process_eng_btn = st.button(
+    "⚡ Process engagement(s) → generation pairs",
+    disabled=not engagement_path,
+    type="primary",
+    key="batch_process_btn",
+)
 
-        ecol1, ecol2, ecol3 = st.columns(3)
-        ecol1.metric(
-            "Confidence",
-            f"{record.extraction_confidence:.2f}",
-            delta="✓ pass" if record.extraction_confidence >= 0.7 else "✗ low",
-        )
-        ecol2.metric("Word count", record.word_count)
-        ecol3.metric("File type", record.file_type)
+if process_eng_btn and engagement_path:
+    from raw_to_training_pair.generation.batch_orchestrator import (
+        run_batch_from_folder,
+    )
 
-        conf_summary = record.metadata.get("confidence_summary", {})
-        fields_present = conf_summary.get("fields_present", [])
-        fields_missing = conf_summary.get("fields_missing", [])
-        pii_redactions = record.pii_redactions
+    _root_path = Path(engagement_path)
 
-        fcol1, fcol2 = st.columns(2)
+    # If the path looks like a single engagement folder (has a .docx
+    # directly inside, no engagement subfolders), wrap it: treat its
+    # parent as the engagements root and the user-provided path as
+    # the single subfolder to process.
+    _docxs_here = list(_root_path.glob("*.docx"))
+    _engagement_subdirs = [
+        c for c in _root_path.iterdir()
+        if c.is_dir() and not c.name.startswith((".", "_"))
+    ]
+    _is_single_engagement = bool(_docxs_here) and not _engagement_subdirs
 
-        with fcol1:
-            st.markdown(f"**Fields found ({len(fields_present)})**")
-            if fields_present:
-                st.code("\n".join(fields_present))
+    with st.spinner(f"Processing {engagement_path}..."):
+        try:
+            if _is_single_engagement:
+                # Treat as a one-engagement batch using the parent as root
+                # so the orchestrator iterates over [single_subfolder].
+                import tempfile, shutil
+                _tmpparent = Path(tempfile.mkdtemp(prefix="engbatch_"))
+                _link = _tmpparent / _root_path.name
+                # Symlink (or copy if symlinking unavailable)
+                try:
+                    _link.symlink_to(_root_path.resolve(), target_is_directory=True)
+                except (OSError, NotImplementedError):
+                    shutil.copytree(_root_path, _link)
+                _eff_root = _tmpparent
             else:
-                st.caption("None detected")
+                _eff_root = _root_path
 
-        with fcol2:
-            st.markdown(f"**Fields missing ({len(fields_missing)})**")
-            if fields_missing:
-                st.code("\n".join(fields_missing))
-            else:
-                st.caption("None — all fields found ✓")
-
-        if pii_redactions:
-            st.markdown("**PII redacted**")
-            pii_summary = ", ".join(
-                f"{r.pii_type}: {r.count}" for r in pii_redactions
+            batch = run_batch_from_folder(
+                engagements_root=_eff_root,
+                output_path=_QUEUE_PATH,
+                workpaper_type=gen_workpaper_type,
+                gold_filename_pattern=gold_pattern,
+                with_sop_retrieval=with_sop_ui,
+                pii_strict=pii_strict_ui,
+                block_on_schema_issues=block_hard_ui,
+                extractor_version="streamlit_ui_v1",
             )
-            st.info(f"🔒 {pii_summary}")
+            st.session_state.batch_result = batch
+            st.session_state.queue_refresh += 1
+        except Exception as e:
+            st.error(f"Batch run failed: {e}")
+            st.session_state.batch_result = None
 
-        if result.gate_failures:
-            with st.expander(f"⚠️ Gate failures ({len(result.gate_failures)})"):
-                for gf in result.gate_failures:
-                    st.warning(gf)
+# Show the batch result
+if st.session_state.batch_result is not None:
+    batch = st.session_state.batch_result
+    st.success(batch.summary())
+
+    bcol1, bcol2, bcol3, bcol4 = st.columns(4)
+    bcol1.metric("Engagements found", batch.total_engagements)
+    bcol2.metric("Pairs built",       batch.pairs_built)
+    bcol3.metric("Pairs written",     batch.pairs_written)
+    bcol4.metric("Errors",            len(batch.errors))
+
+    if batch.per_engagement:
+        with st.expander(f"Per-engagement outcomes ({len(batch.per_engagement)})", expanded=False):
+            for per in batch.per_engagement:
+                icon = "✓" if per.success else "✗"
+                status = "written" if per.written else "skipped (dup or error)"
+                err = f" — {per.error[:120]}" if per.error else ""
+                st.markdown(f"- {icon} **{per.engagement_id}** · {status}{err}")
+
+    if batch.errors:
+        with st.expander(f"Errors ({len(batch.errors)})", expanded=False):
+            for e in batch.errors:
+                st.warning(e[:300])
+
+# ────────────────────────────────────────────────────────────────────────
+# LEGACY FLOW — single-file review pair
+# ────────────────────────────────────────────────────────────────────────
+
+with st.expander("📜 Process workpaper (legacy review pair)", expanded=False):
+    st.caption(
+        "Single-file flow that produces **review-task** training pairs. "
+        "Use this when you want a workpaper → findings/recommendations "
+        "pair (the original review-pair pipeline). The default generation "
+        "flow above is recommended for new work."
+    )
+
+    col_upload, col_options = st.columns([2, 1])
+
+    with col_upload:
+        uploaded_file = st.file_uploader(
+            "Upload a workpaper",
+            type=["docx", "xlsx", "xls", "pdf", "csv", "json"],
+            help="Supported: .docx, .xlsx, .xls, .pdf, .csv, .json",
+        )
+
+    with col_options:
+        st.markdown("**Client types to generate**")
+        selected_client_types = []
+        for ct in _CLIENT_TYPES:
+            if st.checkbox(ct, value=(ct == "NPO"), key=f"ct_{ct}"):
+                selected_client_types.append(ct)
+
+        if not selected_client_types:
+            st.warning("Select at least one client type")
+
+    process_btn = st.button(
+        "⚡ Process workpaper (review pair)",
+        disabled=(uploaded_file is None or not selected_client_types),
+        type="secondary",
+    )
+
+    if process_btn and uploaded_file and selected_client_types:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        tmp_path = _DATA_DIR / uploaded_file.name
+
+        with open(tmp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+        with st.spinner(f"Processing {uploaded_file.name}..."):
+            result = process_workpaper(
+                file_path=str(tmp_path),
+                queue_path=_QUEUE_PATH,
+                data_dir=_DATA_DIR,
+                run_parallel=False,
+                client_types=selected_client_types,
+                use_mock=use_mock,
+            )
+
+        st.session_state.process_result = result
+        st.session_state.queue_refresh += 1
+
+    # Show results
+    if st.session_state.process_result is not None:
+        result = st.session_state.process_result
+
+        if result.skipped:
+            st.error(f"⚠️ Skipped: {result.skip_reason}")
+        else:
+            st.success(
+                f"✅ Processed **{result.file_name}** — "
+                f"{result.pairs_queued} pairs queued, "
+                f"{result.pairs_failed} failed"
+            )
+
+            st.subheader("Extraction summary")
+            record = result.record
+
+            ecol1, ecol2, ecol3 = st.columns(3)
+            ecol1.metric(
+                "Confidence",
+                f"{record.extraction_confidence:.2f}",
+                delta="✓ pass" if record.extraction_confidence >= 0.7 else "✗ low",
+            )
+            ecol2.metric("Word count", record.word_count)
+            ecol3.metric("File type", record.file_type)
+
+            conf_summary = record.metadata.get("confidence_summary", {})
+            fields_present = conf_summary.get("fields_present", [])
+            fields_missing = conf_summary.get("fields_missing", [])
+            pii_redactions = record.pii_redactions
+
+            fcol1, fcol2 = st.columns(2)
+
+            with fcol1:
+                st.markdown(f"**Fields found ({len(fields_present)})**")
+                if fields_present:
+                    st.code("\n".join(fields_present))
+                else:
+                    st.caption("None detected")
+
+            with fcol2:
+                st.markdown(f"**Fields missing ({len(fields_missing)})**")
+                if fields_missing:
+                    st.code("\n".join(fields_missing))
+                else:
+                    st.caption("None — all fields found ✓")
+
+            if pii_redactions:
+                st.markdown("**PII redacted**")
+                pii_summary = ", ".join(
+                    f"{r.pii_type}: {r.count}" for r in pii_redactions
+                )
+                st.info(f"🔒 {pii_summary}")
+
+            if result.gate_failures:
+                with st.expander(f"⚠️ Gate failures ({len(result.gate_failures)})"):
+                    for gf in result.gate_failures:
+                        st.warning(gf)
 
 st.divider()
 
