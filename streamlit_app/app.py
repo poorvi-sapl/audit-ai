@@ -698,6 +698,24 @@ else:
 
         with st.expander(f"#{i + 1} — {label}"):
 
+            # ── Phase 2.2: generation pairs get a side-by-side renderer ──
+            # The review-task banners below silently render empty for
+            # generation pairs (the meta keys they consume don't exist),
+            # so falling through is graceful. The Assistant edit-text-area
+            # still works for inline gold-JSON edits. The shared action
+            # buttons (approve / reject / etc.) further down handle both
+            # pair types identically.
+            if meta.get("pair_type") == "generation":
+                from streamlit_app.generation_pair_renderer import (
+                    render_generation_pair,
+                )
+                render_generation_pair(pair, i)
+                st.divider()
+                st.caption(
+                    "Below: raw messages and edit-text-area. Use these "
+                    "for inspection / inline gold-JSON edits if needed."
+                )
+
             # ── E2 — Uncertainty summary banner ───────────────────────────
             uncertain       = meta.get("uncertain_sections", []) or []
             flagged_fields  = meta.get("flagged_fields", []) or []

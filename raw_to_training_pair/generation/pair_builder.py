@@ -64,6 +64,37 @@ def pair_hash(messages: list[dict]) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _facts_summary(gen_input: GenerationInput) -> dict[str, dict]:
+    """Compact, JSON-serializable summary of the GenerationInput's
+    ExtractedFacts. Stored in metadata so the review UI can render a
+    side-by-side facts-vs-gold comparison without re-parsing the
+    user message text.
+
+    Only present (non-null) facts are included. Sources are
+    truncated to the first 3 per field; quoted_text is clipped to
+    200 chars per source to bound metadata size.
+    """
+    summary: dict[str, dict] = {}
+    for fid, fact in gen_input.extracted_facts.items():
+        if not fact.is_present:
+            continue
+        sources = [
+            {
+                "document_type": src.document_type,
+                "page": src.page,
+                "quoted_text": (src.quoted_text or "")[:200],
+            }
+            for src in fact.sources[:3]
+        ]
+        summary[fid] = {
+            "value": fact.value,
+            "confidence": round(fact.confidence, 3),
+            "extractor_method": fact.extractor_method,
+            "sources": sources,
+        }
+    return summary
+
+
 def _inputs_hash(gen_input: GenerationInput, gold: GeneratedWorkpaper) -> str:
     """Hash over the (input facts + gold) so two pairs from the same
     raw materials collide on this hash even if the rendered messages
@@ -217,6 +248,9 @@ def build_generation_pair(
         "fields_present_in_facts": len(gen_input.fields_present()),
         "fields_missing_in_facts": len(gen_input.fields_missing()),
         "sop_chunks_count": len(gen_input.sop_chunks),
+        # Compact facts summary for the review UI's side-by-side
+        # facts-vs-gold view. See _facts_summary docstring.
+        "extracted_facts_summary": _facts_summary(gen_input),
         "built_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
     }
     if extra_metadata:
