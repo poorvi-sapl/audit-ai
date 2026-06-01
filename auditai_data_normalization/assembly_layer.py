@@ -211,3 +211,106 @@ def assemble_generation_input(
         extracted_facts=merged,
         template_field_ids=template_field_ids,
     )
+
+
+# ---------------------------------------------------------------------
+# Variant that auto-retrieves SOP chunks from Qdrant
+# ---------------------------------------------------------------------
+
+def _default_sop_query(
+    workpaper_type: str,
+    missing_field_ids: list[str],
+) -> str:
+    """Build a default SOP retrieval query when none is provided.
+
+    Combines workpaper context with the list of fields that need to
+    be reasoned about. Keeps query length bounded — only the first
+    ~12 field_ids are included.
+    """
+    field_hint = ", ".join(missing_field_ids[:12])
+    return (
+        f"Audit SOP guidance for workpaper {workpaper_type}. "
+        f"Fields to reason about: {field_hint}."
+    )
+
+
+def assemble_generation_input_with_sop_retrieval(
+    workpaper_type: str,
+    engagement_id: str,
+    source_extractions: list[SourceDocumentExtraction],
+    sop_query: str | None = None,
+    sop_top_k: int = 10,
+    sop_version: str | None = None,
+    qdrant_client=None,
+) -> GenerationInput:
+    """Assemble GenerationInput AND auto-retrieve SOP chunks from Qdrant.
+
+    Same as assemble_generation_input, but uses
+    engineering_benchmark.sop_retriever.retrieve_sop_chunks to populate
+    GenerationInput.sop_chunks instead of requiring the caller to
+    pre-fetch them.
+
+    Parameters
+    ----------
+    workpaper_type, engagement_id, source_extractions
+        Same as assemble_generation_input.
+    sop_query : str | None
+        Optional explicit query for SOP retrieval. If None, a default
+        query is built from the workpaper type and the missing field
+        IDs (the ones the generation model will need to reason about).
+    sop_top_k : int
+        Number of SOP chunks to retrieve. Default 10.
+    sop_version : str | None
+        Optional SOP version filter for reproducibility against a
+        specific SOP cycle.
+    qdrant_client : QdrantClient | None
+        Optional pre-built client for dependency injection in tests.
+
+    Returns
+    -------
+    GenerationInput
+        Fully assembled bundle with extracted_facts, retrieved
+        sop_chunks, and template_field_ids ready to feed the
+        generation prompt.
+    """
+    from engineering_benchmark.sop_retriever import retrieve_sop_chunks
+
+    # First pass: build GenerationInput without SOPs to discover the
+    # missing field list (which drives the default query).
+    base = assemble_generation_input(
+        workpaper_type=workpaper_type,
+        engagement_id=engagement_id,
+        source_extractions=source_extractions,
+        sop_chunks=None,
+    )
+
+    query = sop_query or _default_sop_query(
+        workpaper_type, base.fields_missing(),
+    )
+
+    try:
+        chunks = retrieve_sop_chunks(
+            workpaper_type=workpaper_type,
+            query=query,
+            top_k=sop_top_k,
+            sop_version=sop_version,
+            qdrant_client=qdrant_client,
+        )
+    except KeyError as e:
+        # Unknown workpaper_type for retriever — surface but degrade
+        # gracefully: return the bundle with no SOP chunks rather than
+        # blocking pair production.
+        logger.warning(
+            "assemble_generation_input_with_sop_retrieval: "
+            "SOP retrieval skipped — %s",
+            e,
+        )
+        chunks = []
+
+    return GenerationInput(
+        workpaper_type=base.workpaper_type,
+        engagement_id=base.engagement_id,
+        sop_chunks=chunks,
+        extracted_facts=base.extracted_facts,
+        template_field_ids=base.template_field_ids,
+    )

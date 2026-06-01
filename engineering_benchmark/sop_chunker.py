@@ -73,7 +73,26 @@ class SOPChunk:
     """Approximate token count via tiktoken."""
 
     workpaper_type: str = ""
-    """Workpaper type this SOP section applies to (if detectable)."""
+    """Coarse workflow this SOP section applies to (if detectable).
+
+    Examples: 'engagement_acceptance', 'bank_reconciliation',
+    'financial_statements'. One workflow may cover multiple specific
+    workpaper IDs (e.g., NPO-CX-1.1, GOV-CX-1.1, FP-CX-1.1, TRB-CX-1.1
+    all fall under 'engagement_acceptance').
+    """
+
+    workpaper_ids: list[str] = field(default_factory=list)
+    """Optional list of specific workpaper IDs this chunk applies to.
+
+    Default empty means the chunk is workflow-level and applies to all
+    workpaper IDs in its workflow. Populate this only when the chunk
+    text is specific to a particular workpaper (e.g., a chunk citing
+    501(c)(3) specifically would carry workpaper_ids=['NPO-CX-1.1']).
+
+    Retrieval logic: a chunk matches if its workpaper_type matches the
+    query's workflow AND (its workpaper_ids is empty OR contains the
+    query's workpaper_id).
+    """
 
     is_table: bool = False
     """True if this chunk contains a table kept whole."""

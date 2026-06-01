@@ -106,6 +106,16 @@ def _load_model():
 # Embedding
 # ---------------------------------------------------------------------------
 
+# e5-mistral-7b-instruct is an asymmetric retrieval model: documents are
+# embedded raw, but queries MUST be prefixed with a task instruction.
+# Using the wrong (or no) prefix at query time measurably degrades recall.
+# See: https://huggingface.co/intfloat/e5-mistral-7b-instruct
+E5_QUERY_INSTRUCTION: str = (
+    "Instruct: Retrieve relevant SOP sections for an audit workpaper task.\n"
+    "Query: "
+)
+
+
 def _embed_batch(texts: list[str]) -> list[list[float]]:
     """
     Embed a batch of texts. Returns list of float vectors.
@@ -124,6 +134,24 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
         return vectors.tolist()
     except Exception as e:
         raise RuntimeError(f"Embedding failed: {e}") from e
+
+
+def embed_query(query_text: str) -> list[float]:
+    """Embed a retrieval query with the e5-mistral instruction prefix.
+
+    Documents and queries embed differently for e5-mistral — documents
+    use no prefix, queries must be prefixed with E5_QUERY_INSTRUCTION.
+    Always use this function (NOT _embed_batch) to embed retrieval
+    queries; otherwise vector similarity is computed in mismatched
+    spaces and recall drops noticeably.
+
+    Returns a single vector matching settings.embedding.dimensions.
+    """
+    if not query_text or not query_text.strip():
+        raise ValueError("embed_query: query_text is empty")
+    prefixed = E5_QUERY_INSTRUCTION + query_text.strip()
+    vectors = _embed_batch([prefixed])
+    return vectors[0]
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +202,7 @@ def _upsert_to_qdrant(
             "char_end":       chunk.char_end,
             "token_count":    chunk.token_count,
             "workpaper_type": chunk.workpaper_type,
+            "workpaper_ids":  chunk.workpaper_ids,   # specific workpaper IDs (Option C)
             "is_rollforward": chunk.metadata.get("is_rollforward", False),
             "is_table":       chunk.is_table,
             "chunks_hash":    chunk.chunk_id,
