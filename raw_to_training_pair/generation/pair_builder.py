@@ -95,10 +95,38 @@ def _inputs_hash(gen_input: GenerationInput, gold: GeneratedWorkpaper) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _check_pii_in_content(content: str) -> tuple[int, list[str]]:
+    """Run the Presidio-backed scrubber on `content` to detect any PII
+    that wasn't scrubbed upstream. Returns (replacement_count,
+    pii_types_found). A non-zero count means the content carries
+    detectable PII and should NOT flow to training data without
+    further scrubbing.
+    """
+    try:
+        from auditai_data_normalization.pii import scrub
+    except ImportError:
+        logger.warning(
+            "build_generation_pair: pii.scrub unavailable — skipping "
+            "PII enforcement check. PII may flow downstream unchecked."
+        )
+        return (0, [])
+    try:
+        result = scrub(content)
+    except Exception as e:
+        logger.warning(
+            "build_generation_pair: pii.scrub raised %s — treating as "
+            "no-PII for this build but flagging in metadata", e,
+        )
+        return (-1, [str(e)])
+    # total_replacements and types_found are methods on ScrubResult, not properties
+    return (result.total_replacements(), list(result.types_found()))
+
+
 def build_generation_pair(
     gen_input: GenerationInput,
     gold: GeneratedWorkpaper,
     block_on_schema_issues: bool = False,
+    pii_strict: bool = False,
     extra_metadata: dict | None = None,
 ) -> dict[str, Any]:
     """Build a JSONL-ready generation training pair.
@@ -111,14 +139,21 @@ def build_generation_pair(
             bad categorical values, wrong-typed booleans). If False
             (default), the pair is built anyway and issues are recorded
             in metadata.schema_issues so reviewers can decide.
+        pii_strict: PII enforcement mode (Decision Y2). Default False:
+            scan both messages for PII, log a warning if any detected,
+            record findings in metadata.pii_issues, but build the pair
+            anyway. True: raise ValueError if any PII detected in either
+            message. Production / training-data-flow callers should
+            pass True.
         extra_metadata: Optional dict merged into the pair's metadata.
 
     Returns:
         Pair dict ready for JSONL append.
 
     Raises:
-        ValueError: If gen_input.workpaper_type != gold.workpaper_type
-                    or (block_on_schema_issues=True and validation fails).
+        ValueError: If gen_input.workpaper_type != gold.workpaper_type,
+                    or (block_on_schema_issues=True and validation fails),
+                    or (pii_strict=True and PII detected).
     """
     if gen_input.workpaper_type != gold.workpaper_type:
         raise ValueError(
@@ -149,6 +184,27 @@ def build_generation_pair(
         {"role": "assistant", "content": assistant_message},
     ]
 
+    # PII enforcement (Decision Y2)
+    user_pii_count, user_pii_types = _check_pii_in_content(user_message)
+    asst_pii_count, asst_pii_types = _check_pii_in_content(assistant_message)
+    pii_issues = {
+        "user_pii_count": user_pii_count,
+        "user_pii_types": user_pii_types,
+        "assistant_pii_count": asst_pii_count,
+        "assistant_pii_types": asst_pii_types,
+    }
+    total_pii_detected = max(0, user_pii_count) + max(0, asst_pii_count)
+    if total_pii_detected > 0:
+        msg = (
+            f"build_generation_pair: PII detected in pair for "
+            f"{gen_input.workpaper_type}/{gen_input.engagement_id} "
+            f"(user={user_pii_count}, assistant={asst_pii_count}). "
+            f"Types: user={user_pii_types}, assistant={asst_pii_types}."
+        )
+        if pii_strict:
+            raise ValueError(msg + " pii_strict=True → refusing to build.")
+        logger.warning(msg + " pii_strict=False → recording and continuing.")
+
     metadata: dict[str, Any] = {
         "pair_type": "generation",
         "task": TASK_IDENTIFIER,
@@ -157,6 +213,7 @@ def build_generation_pair(
         "file_hash": _inputs_hash(gen_input, gold),
         "pair_hash": pair_hash(messages),
         "schema_issues": issues,
+        "pii_issues": pii_issues,
         "fields_present_in_facts": len(gen_input.fields_present()),
         "fields_missing_in_facts": len(gen_input.fields_missing()),
         "sop_chunks_count": len(gen_input.sop_chunks),
