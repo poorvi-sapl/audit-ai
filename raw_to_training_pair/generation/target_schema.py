@@ -84,12 +84,24 @@ class GeneratedWorkpaper:
 # Validation
 # ---------------------------------------------------------------------
 
+# Soft-issue prefix — categorical out-of-vocab values are common in real
+# audit data (auditors write free text in dropdown fields) and should not
+# block training-pair production. Prefixed so pair_builder and reviewers
+# can distinguish soft from hard validation issues.
+SOFT_ISSUE_PREFIX = "soft: "
+
+
 def validate_against_registry(gw: GeneratedWorkpaper) -> list[str]:
     """Validate a GeneratedWorkpaper against its workpaper's registry.
 
     Returns a list of issue strings. Empty list means valid.
     Does NOT raise — validation is informational; callers decide
     whether issues block pair construction.
+
+    Hard issues (missing/extra fields, type mismatches) are returned
+    unprefixed. Soft issues (categorical free-text fills outside
+    allowed_values) are prefixed with `SOFT_ISSUE_PREFIX` so they can
+    be filtered out of blocking decisions.
     """
     issues: list[str] = []
     try:
@@ -100,17 +112,18 @@ def validate_against_registry(gw: GeneratedWorkpaper) -> list[str]:
     registry_ids = set(registry.keys())
     gold_ids = set(gw.fields.keys())
 
-    # 1. Extra fields not in registry
+    # 1. Extra fields not in registry (hard)
     extras = gold_ids - registry_ids
     for fid in sorted(extras):
         issues.append(f"field {fid!r} not in registry for {gw.workpaper_type}")
 
-    # 2. Missing fields (in registry but absent from gold)
+    # 2. Missing fields (in registry but absent from gold) — hard
     missing = registry_ids - gold_ids
     for fid in sorted(missing):
         issues.append(f"field {fid!r} missing from gold (registry requires it)")
 
-    # 3. Categorical values must match allowed_values
+    # 3. Categorical out-of-vocab — SOFT (real auditors write free text)
+    # Boolean wrong-type — HARD (structural error, not free-text variation)
     for fid, fv in gw.fields.items():
         if fid not in registry:
             continue
@@ -118,8 +131,8 @@ def validate_against_registry(gw: GeneratedWorkpaper) -> list[str]:
         if spec.field_type == "categorical" and fv.value is not None:
             if fv.value not in (spec.allowed_values or ()):
                 issues.append(
-                    f"field {fid!r} value {fv.value!r} not in allowed_values "
-                    f"{list(spec.allowed_values or ())}"
+                    f"{SOFT_ISSUE_PREFIX}field {fid!r} value {fv.value!r} "
+                    f"not in allowed_values {list(spec.allowed_values or ())}"
                 )
         if spec.field_type == "boolean" and fv.value is not None:
             if not isinstance(fv.value, bool):
@@ -129,6 +142,12 @@ def validate_against_registry(gw: GeneratedWorkpaper) -> list[str]:
                 )
 
     return issues
+
+
+def hard_issues(issues: list[str]) -> list[str]:
+    """Filter to issues that should block pair construction. Drops soft
+    issues (prefixed with SOFT_ISSUE_PREFIX)."""
+    return [i for i in issues if not i.startswith(SOFT_ISSUE_PREFIX)]
 
 
 # ---------------------------------------------------------------------

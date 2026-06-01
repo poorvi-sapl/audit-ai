@@ -325,7 +325,7 @@ class TestPairBuilder:
         with pytest.raises(ValueError, match="mismatch"):
             build_generation_pair(gi, gold)
 
-    def test_schema_issues_recorded_in_metadata_when_not_blocking(self):
+    def test_soft_schema_issue_recorded_in_metadata_when_not_blocking(self):
         gi = _synthetic_gen_input()
         gold = _synthetic_gold_minimal_npo()
         gold.fields["q1_a"] = GeneratedFieldValue(value="Bogus Basis")
@@ -333,11 +333,23 @@ class TestPairBuilder:
         assert pair["metadata"]["schema_issues"]
         assert any("q1_a" in i for i in pair["metadata"]["schema_issues"])
 
-    def test_schema_issues_raise_when_blocking(self):
+    def test_soft_schema_issue_does_NOT_block_even_when_strict(self):
+        # Out-of-vocab categorical is a SOFT issue — real auditors write
+        # free text in dropdown fields. Should not block pair build even
+        # when block_on_schema_issues=True.
         gi = _synthetic_gen_input()
         gold = _synthetic_gold_minimal_npo()
         gold.fields["q1_a"] = GeneratedFieldValue(value="Bogus Basis")
-        with pytest.raises(ValueError, match="schema issue"):
+        pair = build_generation_pair(gi, gold, block_on_schema_issues=True)
+        # The pair builds; issue is recorded as soft
+        assert any("q1_a" in i for i in pair["metadata"]["schema_issues"])
+
+    def test_hard_schema_issue_raises_when_blocking(self):
+        # Adding an extra-field-not-in-registry is a HARD issue.
+        gi = _synthetic_gen_input()
+        gold = _synthetic_gold_minimal_npo()
+        gold.fields["totally_made_up_field"] = GeneratedFieldValue(value="x")
+        with pytest.raises(ValueError, match="HARD schema issue"):
             build_generation_pair(gi, gold, block_on_schema_issues=True)
 
     def test_extra_metadata_merged(self):

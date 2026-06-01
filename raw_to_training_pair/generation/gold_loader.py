@@ -106,18 +106,98 @@ def _find_row(table, target_prefix: str, used_rows: set[int]) -> int | None:
 # ---------------------------------------------------------------------
 
 def _has_mark(cell_text: str) -> bool:
-    """True iff a Yes/No/N/A cell contains the X mark."""
-    return cell_text.strip().upper() == _MARK
+    """True iff a Yes/No/N/A cell shows a mark via cell text.
+
+    Detects three formats:
+      1. Literal "X" (synthetic test fixture convention)
+      2. Unicode Private Use Area characters U+E000-U+F8FF — this is
+         what Wingdings symbols look like in modern Word when rendered
+         to text (e.g., ECEstep's form uses \\uf061 for marked cells)
+      3. Other common checkmark codepoints (✓ ✔ etc.)
+    Real HCLLP workpapers using <w:sym> elements are handled by
+    _cell_is_marked, which calls this AND inspects the cell XML.
+    """
+    text = cell_text.strip()
+    if not text:
+        return False
+    if text.upper() == _MARK:
+        return True
+    # Check for any Unicode Private Use Area character (Wingdings ends
+    # up here when rendered to text in modern Word documents).
+    for ch in text:
+        cp = ord(ch)
+        if 0xE000 <= cp <= 0xF8FF:
+            return True
+        # Common explicit checkmark codepoints
+        if ch in ("✓", "✔", "☑", "■", "●"):
+            return True
+    return False
+
+
+# Wingdings character codes used by the real HCLLP NPO-CX-1.1 forms
+# for Yes/No/N/A cell marks (rendered as <w:sym w:font="Wingdings"
+# w:char="..."/> elements). The check character F0FC is the most
+# common "checked" mark; F0FB and F0FE are nearby checkbox glyphs.
+_WINGDINGS_CHECK_CHARS: frozenset[str] = frozenset({
+    "F0FC", "F0FB", "F0FE", "F0FD",
+    "f0fc", "f0fb", "f0fe", "f0fd",
+})
+
+# XML namespace for WordprocessingML
+_W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+
+def _cell_is_marked(cell) -> bool:
+    """True iff the cell contains a Yes/No/N/A mark.
+
+    Real HCLLP workpapers use Wingdings symbol marks rendered via
+    <w:sym w:font="Wingdings" w:char="F0FC"/> (or similar). The
+    python-docx `.text` attribute does NOT surface symbol runs, so a
+    text-based check misses these. Falls back to text "X" detection
+    for backward compatibility with synthetic test fixtures.
+    """
+    # Fast path: legacy "X" text check (synthetic test fixture format)
+    if _has_mark(cell.text):
+        return True
+    # Real-form path: look for <w:sym> elements in the cell's XML
+    try:
+        sym_elements = cell._tc.findall(f".//{{{_W_NS}}}sym")
+    except Exception:
+        return False
+    if not sym_elements:
+        return False
+    for sym in sym_elements:
+        char = sym.get(f"{{{_W_NS}}}char", "")
+        if char in _WINGDINGS_CHECK_CHARS:
+            return True
+    # Also: if there's any sym at all in the marks column, treat as marked.
+    # The Wingdings character set has many checkmark / box variants and
+    # different HCLLP templates may use different codes. A sym element
+    # in a Yes/No/N/A column basically always means "the auditor put a
+    # mark here" — we treat it as marked.
+    return True
 
 
 def _strip_label_prefix(cell_text: str, label: str) -> str | None:
     """Header cells have the form 'Label: value'. Return the value
-    portion, or None if the cell is empty after stripping."""
+    portion, or None if the cell is empty after stripping.
+
+    Real workpaper header cells sometimes contain multiple paragraphs
+    (e.g., 'Heffernan Foundation\\nEngagement Date: 12/04/2025'). We
+    take only the FIRST non-empty line as the atomic field value;
+    additional paragraphs are unrelated content that doesn't belong
+    in this field.
+    """
     text = cell_text.strip()
     prefix = f"{label}:"
     if text.startswith(prefix):
         text = text[len(prefix):].strip()
-    return text or None
+    # Take only the first non-empty line — drop any trailing
+    # secondary content like "Engagement Date: ..."
+    first_line = next(
+        (ln.strip() for ln in text.splitlines() if ln.strip()), "",
+    )
+    return first_line or None
 
 
 # ---------------------------------------------------------------------
@@ -153,9 +233,9 @@ def _three_state_boolean_from_row(
 ) -> bool | None:
     """Read a Yes/No (or Yes/No/N/A) row. Returns True for Yes,
     False for No, None for N/A or unmarked."""
-    if _has_mark(cells[yes_col].text):
+    if _cell_is_marked(cells[yes_col]):
         return True
-    if _has_mark(cells[no_col].text):
+    if _cell_is_marked(cells[no_col]):
         return False
     # na_col present → None (the registry models N/A as None for booleans)
     return None
@@ -236,6 +316,19 @@ def _process_part_i_question(
         fields_out[f"{field_id}_reference"] = GeneratedFieldValue(
             value=_comment_value(cells, _PART_I_COMMENT_COL),
         )
+    elif input_type == "yes_no_with_remark_on_yes":
+        # q12 — boolean answer; if Yes, the comment cell holds an
+        # explanatory remark. We store both as separate fields (the
+        # registry treats _text/_specification/_remark consistently;
+        # for this variant we use the _remark suffix mirroring
+        # pii_q2_j's mandatory-remark pattern).
+        bool_val = _three_state_boolean_from_row(
+            cells, _PART_I_YES_COL, _PART_I_NO_COL,
+        )
+        fields_out[field_id] = GeneratedFieldValue(value=bool_val)
+        fields_out[f"{field_id}_remark"] = GeneratedFieldValue(
+            value=_comment_value(cells, _PART_I_COMMENT_COL),
+        )
     else:
         logger.warning(
             "gold_loader: unknown Part I input_type %r for field %r — "
@@ -273,7 +366,7 @@ def _process_part_ii_question(
 
     if input_type == "yes_no_na":
         # N/A column present; if marked, value is None (per registry semantics)
-        if _PART_II_NA_COL < len(cells) and _has_mark(cells[_PART_II_NA_COL].text):
+        if _PART_II_NA_COL < len(cells) and _cell_is_marked(cells[_PART_II_NA_COL]):
             fields_out[field_id] = GeneratedFieldValue(value=None)
             return
         fields_out[field_id] = GeneratedFieldValue(
@@ -409,7 +502,25 @@ def load_filled_workpaper(
     if len(doc.tables) > _T_SIGNOFF:
         fields.update(_load_signoff(doc.tables[_T_SIGNOFF]))
     if len(doc.tables) > _T_PART_II:
-        fields.update(_load_part_ii(doc.tables[_T_PART_II], manifest))
+        part_ii_fields = _load_part_ii(doc.tables[_T_PART_II], manifest)
+        fields.update(part_ii_fields)
+
+        # engagement_type is auditor_selection meta — not literally stored
+        # in the .docx. We infer it from Part II population: if ANY Part II
+        # field has a non-null value, this was an initial engagement
+        # (Part II is filled for initial / 1st-year engagements only,
+        # per the manifest's part_ii_behavior). Otherwise it's recurring.
+        # The registry expects a categorical from the allowed_values list.
+        has_part_ii_content = any(
+            fv.value is not None for fv in part_ii_fields.values()
+        )
+        fields["engagement_type"] = GeneratedFieldValue(
+            value=(
+                "Initial / 1st Year"
+                if has_part_ii_content
+                else "Recurring / 2nd Year or Subsequent"
+            ),
+        )
 
     logger.info(
         "gold_loader: %s -> %d fields extracted (workpaper=%s, engagement=%s)",

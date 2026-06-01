@@ -160,8 +160,11 @@ fields:
     type: boolean
   q11:
     type: boolean
+  # q12: yes_no_with_remark_on_yes — boolean + text (when Yes, explain)
   q12:
     type: boolean
+  q12_remark:
+    type: text
   q13:
     type: boolean
   q14:

@@ -47,6 +47,7 @@ from raw_to_training_pair.generation.prompt import (
 )
 from raw_to_training_pair.generation.target_schema import (
     GeneratedWorkpaper,
+    hard_issues,
     to_json_string,
     validate_against_registry,
 )
@@ -194,16 +195,20 @@ def build_generation_pair(
         )
 
     issues = validate_against_registry(gold)
-    if issues and block_on_schema_issues:
+    blocking = hard_issues(issues)
+    if blocking and block_on_schema_issues:
         raise ValueError(
-            f"build_generation_pair: gold has {len(issues)} schema issue(s) "
-            f"and block_on_schema_issues=True. First few: {issues[:3]}"
+            f"build_generation_pair: gold has {len(blocking)} HARD "
+            f"schema issue(s) and block_on_schema_issues=True. "
+            f"First few: {blocking[:3]}"
         )
     if issues:
         logger.warning(
-            "build_generation_pair: %d schema issue(s) for %s/%s — "
-            "recording in metadata.schema_issues",
-            len(issues), gen_input.workpaper_type, gen_input.engagement_id,
+            "build_generation_pair: %d schema issue(s) for %s/%s "
+            "(%d hard, %d soft) — recording in metadata.schema_issues",
+            len(issues),
+            gen_input.workpaper_type, gen_input.engagement_id,
+            len(blocking), len(issues) - len(blocking),
         )
 
     user_message = render_user_message(gen_input)

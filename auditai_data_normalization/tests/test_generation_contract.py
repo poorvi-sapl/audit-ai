@@ -230,14 +230,16 @@ class TestFieldTypeRegistry:
 
     def test_load_npo_cx_1_1(self):
         registry = load_registry(WORKPAPER)
-        assert len(registry) == 56
+        assert len(registry) == 57
 
     def test_distribution_matches_expected(self):
         registry = load_registry(WORKPAPER)
         types = {}
         for spec in registry.values():
             types[spec.field_type] = types.get(spec.field_type, 0) + 1
-        assert types == {"boolean": 38, "text": 10, "date": 3, "categorical": 5}
+        # 38 boolean + 11 text + 3 date + 5 categorical = 57
+        # (11 text: prior 10 + q12_remark added for yes_no_with_remark_on_yes)
+        assert types == {"boolean": 38, "text": 11, "date": 3, "categorical": 5}
 
     def test_acceptance_decision_excluded(self):
         with pytest.raises(KeyError):
@@ -397,11 +399,11 @@ class TestAssemblyLayer:
         )
         assert gen_input.workpaper_type == WORKPAPER
         assert gen_input.engagement_id == "ENG-2024-001"
-        assert len(gen_input.template_field_ids) == 56
+        assert len(gen_input.template_field_ids) == 57
         assert set(gen_input.fields_present()) == {
             "organization_name", "financial_position_date",
         }
-        assert len(gen_input.fields_missing()) == 54
+        assert len(gen_input.fields_missing()) == 55
 
     def test_multi_document_agreement_combines_sources(self):
         ev_a = FieldEvidence(
@@ -503,7 +505,7 @@ class TestAssemblyLayer:
             source_extractions=[],
         )
         assert gen_input.extracted_facts == {}
-        assert len(gen_input.fields_missing()) == 56
+        assert len(gen_input.fields_missing()) == 57
 
     def test_sop_chunks_pass_through(self, fe_org_name):
         chunks = [
